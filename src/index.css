@@ -205,6 +205,136 @@ All colors MUST be HSL for shadcn/ui compatibility; UXSG sketchy tokens are in :
     border: 2px solid #090907;
     border-radius: 6px 10px 4px 8px;
   }
+
+  /**
+   * Summit 2026 facilitator cards: straight top/left/right, torn bottom edge (no side borders).
+   * `filter: drop-shadow` so shadow follows the clip silhouette (unlike box-shadow with clip-path).
+   * Bottom edge uses `calc(100% - …px)` so the tear is the same physical depth on every card;
+   * percentage-only Y values made tall cards (e.g. long bios) a different silhouette + shadow than short cards.
+   */
+  .summit-facilitator-card-frame {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .summit-facilitator-paper {
+    clip-path: polygon(
+      0% 0%,
+      100% 0%,
+      100% calc(100% - 36px),
+      92% calc(100% - 10px),
+      84% calc(100% - 30px),
+      76% calc(100% - 12px),
+      68% calc(100% - 28px),
+      60% calc(100% - 8px),
+      52% calc(100% - 30px),
+      44% calc(100% - 14px),
+      36% calc(100% - 26px),
+      28% calc(100% - 10px),
+      20% calc(100% - 32px),
+      12% calc(100% - 8px),
+      4% calc(100% - 28px),
+      0% calc(100% - 20px),
+      0% 0%
+    );
+    filter: drop-shadow(0 14px 42px rgba(9, 9, 7, 0.22)) drop-shadow(0 8px 22px rgba(9, 9, 7, 0.16))
+      drop-shadow(0 3px 10px rgba(9, 9, 7, 0.1));
+  }
+
+  /**
+   * Summit 2026 facilitator push pin — layered cap + shaft + metal point (scoped under .summit-pushpin).
+   * Colors derived from --uxsg-rsvp; layout matches classic negative-margin overlap onto the paper card.
+   */
+  .summit-pushpin {
+    --pin-cap-dark: color-mix(in srgb, var(--uxsg-rsvp) 72%, #090907);
+    --pin-cap-highlight: color-mix(in srgb, var(--uxsg-rsvp) 55%, #ffffff);
+    --pin-metal: #999;
+
+    margin: 0 auto -15px auto;
+    position: relative;
+    width: 20px;
+    height: 35px;
+    z-index: 2;
+    isolation: isolate;
+  }
+
+  .summit-pushpin--tilt {
+    transform: rotate(9deg);
+  }
+
+  .summit-pushpin-head {
+    background: var(--pin-cap-dark);
+    width: 75%;
+    height: 20%;
+    border-radius: 100%;
+    position: relative;
+    left: 12.5%;
+    top: 0;
+  }
+
+  .summit-pushpin-head::after {
+    content: "";
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: var(--pin-cap-highlight);
+    position: absolute;
+    top: -30%;
+    left: 0;
+  }
+
+  .summit-pushpin-base {
+    background: var(--pin-cap-dark);
+    width: 100%;
+    height: 25%;
+    border-radius: 100%;
+    position: relative;
+    left: 0;
+    top: 30%;
+  }
+
+  .summit-pushpin-base::after {
+    content: "";
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: var(--pin-cap-highlight);
+    position: absolute;
+    top: -30%;
+    left: 0;
+  }
+
+  .summit-pushpin-shaft {
+    background: var(--pin-cap-dark);
+    height: 30%;
+    width: 50%;
+    position: relative;
+    border-radius: 0;
+    top: -30%;
+    left: 25%;
+  }
+
+  .summit-pushpin-shaft::after {
+    content: "";
+    width: 100%;
+    height: 50%;
+    border-radius: 50%;
+    background: var(--pin-cap-dark);
+    position: absolute;
+    top: 75%;
+  }
+
+  .summit-pushpin-point {
+    display: block;
+    background: var(--pin-metal);
+    height: 70%;
+    width: 14%;
+    position: absolute;
+    border-radius: 0 0 20% 20%;
+    z-index: -1;
+    bottom: 0;
+    left: 43%;
+  }
+
   /* Paper-like background texture (DESIGN.md) */
   .paper-bg {
     background-color: var(--uxsg-paper);
@@ -298,5 +428,61 @@ All colors MUST be HSL for shadcn/ui compatibility; UXSG sketchy tokens are in :
     left: -20px;
     border: 1px solid rgba(0, 0, 0, 0.05);
     z-index: 10;
+  }
+
+  /* Summit 2026 testimonial wall — scroll-driven settle-in (inner wrapper; keeps outer rotate/transform) */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      @keyframes summit-testimonial-settle-0 {
+        0%,
+        12% {
+          opacity: 0;
+          translate: 0 1.125rem;
+        }
+        100% {
+          opacity: 1;
+          translate: 0 0;
+        }
+      }
+      @keyframes summit-testimonial-settle-1 {
+        0%,
+        26% {
+          opacity: 0;
+          translate: 0 1.125rem;
+        }
+        100% {
+          opacity: 1;
+          translate: 0 0;
+        }
+      }
+      @keyframes summit-testimonial-settle-2 {
+        0%,
+        40% {
+          opacity: 0;
+          translate: 0 1.125rem;
+        }
+        100% {
+          opacity: 1;
+          translate: 0 0;
+        }
+      }
+
+      .summit-testimonial-settle-in {
+        animation-duration: auto;
+        animation-timing-function: linear;
+        animation-fill-mode: both;
+        animation-timeline: view(block);
+        animation-range: entry 0% cover 38%;
+      }
+      .summit-testimonial-settle-in--0 {
+        animation-name: summit-testimonial-settle-0;
+      }
+      .summit-testimonial-settle-in--1 {
+        animation-name: summit-testimonial-settle-1;
+      }
+      .summit-testimonial-settle-in--2 {
+        animation-name: summit-testimonial-settle-2;
+      }
+    }
   }
 }

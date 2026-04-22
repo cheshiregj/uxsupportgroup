@@ -7,16 +7,28 @@ export const DEFAULT_DESCRIPTION =
 const SUMMIT_2026_DESCRIPTION =
   "2 half days. Real builds. For future-forward designers navigating the AI shift.";
 
-type PageMeta = { title: string; description?: string };
+/** Same-origin path for `og:image` when a route has no dedicated art. */
+const DEFAULT_OG_IMAGE_PATH = "/uxsg-logo.svg";
+
+const SUMMIT_2026_OG_IMAGE_PATH = "/summit-2026-og.png";
+
+type PageMeta = { title: string; description?: string; ogImagePath?: string };
+
+export type ResolvedPageMeta = {
+  title: string;
+  description: string;
+  ogImagePath: string;
+};
 
 export function formatPageTitle(pageTitle: string): string {
   return `${pageTitle} | ${SITE_TITLE}`;
 }
 
-function withDefaults(meta: PageMeta): { title: string; description: string } {
+function withDefaults(meta: PageMeta): ResolvedPageMeta {
   return {
     title: meta.title,
     description: meta.description ?? DEFAULT_DESCRIPTION,
+    ogImagePath: meta.ogImagePath ?? DEFAULT_OG_IMAGE_PATH,
   };
 }
 
@@ -36,6 +48,7 @@ const EXACT: Record<string, PageMeta> = {
   "/summit": {
     title: formatPageTitle("AIxUX Summit 2026: Agentic Designer"),
     description: SUMMIT_2026_DESCRIPTION,
+    ogImagePath: SUMMIT_2026_OG_IMAGE_PATH,
   },
   "/summit-2025": { title: formatPageTitle("AIxUX Summit 2025") },
   "/about": {
@@ -58,7 +71,7 @@ const EXACT: Record<string, PageMeta> = {
 
 const PROFILE_SLUG = /^\/summit-profiles\/([^/]+)$/;
 
-export function getPageMeta(pathname: string): { title: string; description: string } {
+export function getPageMeta(pathname: string): ResolvedPageMeta {
   const exact = EXACT[pathname];
   if (exact) return withDefaults(exact);
 

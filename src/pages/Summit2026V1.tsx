@@ -1,23 +1,27 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
 import { Accordion, AccordionContent } from "@/components/ui/accordion";
 import { MembershipAccordionItem, MembershipAccordionTrigger } from "@/components/MembershipAccordion";
 import { HandDrawnHighlight } from "@/components/sketchy/HandDrawnHighlight";
-import { SketchyHandDrawnInput } from "@/components/sketchy/SketchyHandDrawnInput";
 import { SketchyRectButton } from "@/components/sketchy/SketchyCTA";
-import { SketchyIconButton } from "@/components/sketchy/SketchyIconButton";
 import { RoughWavyUnderline } from "@/components/sketchy/RoughWavyUnderline";
 import { SketchyBadge } from "@/components/sketchy/SketchyBadge";
 import { SketchySectionTitle } from "@/components/sketchy/SketchySectionTitle";
+import { Summit2026PointerGlow } from "@/components/sketchy/Summit2026PointerGlow";
 import { SketchyTallCard } from "@/components/sketchy/SketchyTallCard";
 import { SketchyTestimonialNote } from "@/components/sketchy/SketchyTestimonialNote";
+import { Summit2026FacilitatorCard } from "@/components/sketchy/Summit2026FacilitatorCard";
+import {
+  formatSummitFacilitatorRoleLine,
+  SUMMIT_2026_FACILITATORS,
+} from "@/data/summit2026Facilitators";
 import EstherJ from "@/assets/EstherJ.jpg";
 import FarooqK from "@/assets/FarooqK-3.jpg";
 import JolieC from "@/assets/JolieC.png";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { CheckCircle2, HandHeart, Loader2, Mail, MessagesSquare, PencilLine, Star, Users, XCircle } from "lucide-react";
+import { CheckCircle2, HandHeart, MessagesSquare, PencilLine, Star, Users, XCircle } from "lucide-react";
 
 const EARLY_BIRD_PRICE_ID = "price_1TIEduEt4aAP5ylPU5RJtO6s";
 const REGULAR_PRICE_ID = "price_1TIEdyEt4aAP5ylPN6ffwF5U";
@@ -26,7 +30,13 @@ const EARLY_BIRD_SEATS = 20;
 const SUMMIT_HERO_IMAGE = "/summit-2026-hero-no-text.webp";
 
 /** Sticky header height on `/summit` (no announcement bar) — `SketchyHeader` uses `h-16`. */
-const SUMMIT_STICKY_HEADER_OFFSET_PX = 64;
+const SUMMIT_STICKY_HEADER_OFFSET_PX = 24;
+
+/** Wait after scroll-into-view before the first highlight sweep (Summit 2026 hero subcopy). */
+const SUMMIT_TAGLINE_HIGHLIGHT_INITIAL_DELAY_MS = 1000;
+
+/** Delay between each tagline highlight sweep start (Summit 2026 hero subcopy). */
+const SUMMIT_TAGLINE_HIGHLIGHT_STAGGER_MS = 650;
 
 function scrollPricingBelowStickyHeader() {
   const el = document.getElementById("pricing");
@@ -57,7 +67,7 @@ const SUMMIT_TESTIMONIALS = [
   {
     quote:
       "A truly great day of learning, getting to know incredible people, and giving deep into AI.",
-    name: "Esther Greenfield Jakar",
+    name: "Esther Greenfield-Jakar",
     role: "Product Designer | Product Manager",
     avatarSrc: EstherJ,
   },
@@ -74,6 +84,13 @@ const TESTIMONIAL_WALL_WRAPPERS = [
   "relative z-10 w-full max-w-[min(100%,22rem)] lg:max-w-[20rem] xl:max-w-[22rem] 2xl:max-w-[24rem] shrink-0 rotate-2 -translate-x-1 sm:translate-x-0 lg:rotate-[-2deg] lg:translate-x-0 lg:translate-y-0 lg:-ml-4 -mt-6",
   "relative z-20 w-full max-w-[min(100%,22rem)] lg:max-w-[20rem] xl:max-w-[22rem] 2xl:max-w-[24rem] shrink-0 -rotate-3 translate-x-2 sm:translate-x-3 lg:translate-x-0 lg:rotate-[2.5deg] lg:translate-y-1 lg:-ml-4 -mt-6",
   "relative z-30 w-full max-w-[min(100%,22rem)] lg:max-w-[20rem] xl:max-w-[22rem] 2xl:max-w-[24rem] shrink-0 rotate-1 -translate-x-2 sm:-translate-x-1 lg:translate-x-0 lg:-rotate-1 lg:-translate-y-0.5 lg:-ml-4 -mt-6",
+] as const;
+
+/** Scroll-driven settle-in modifiers (see `index.css` — keyframe holds stagger a shared view timeline). */
+const TESTIMONIAL_SETTLE_IN = [
+  "summit-testimonial-settle-in summit-testimonial-settle-in--0",
+  "summit-testimonial-settle-in summit-testimonial-settle-in--1",
+  "summit-testimonial-settle-in summit-testimonial-settle-in--2",
 ] as const;
 
 const CARD_FILL = "hsl(var(--card))";
@@ -219,12 +236,14 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
 ];
 
 const Summit2026V1 = () => {
-  const [formData, setFormData] = useState({ name: "", email: "" });
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEarlyBird, setIsEarlyBird] = useState(true);
   const [earlyBirdRemaining, setEarlyBirdRemaining] = useState(EARLY_BIRD_SEATS);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<"early" | "regular" | null>(null);
+  const [taglineHighlightStep, setTaglineHighlightStep] = useState(0);
+  const taglineParagraphRef = useRef<HTMLParagraphElement>(null);
+  const taglineHighlightHasPlayedRef = useRef(false);
+  const taglineHighlightTimeoutsRef = useRef<number[]>([]);
 
   const fetchAvailability = useCallback(async () => {
     try {
@@ -284,6 +303,55 @@ const Summit2026V1 = () => {
     }
   }, [fetchAvailability]);
 
+  useEffect(() => {
+    const el = taglineParagraphRef.current;
+    if (!el) return;
+
+    const reduceMq = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    const clearHighlightTimeouts = () => {
+      for (const id of taglineHighlightTimeoutsRef.current) {
+        window.clearTimeout(id);
+      }
+      taglineHighlightTimeoutsRef.current = [];
+    };
+
+    const runTaglineHighlightSequence = () => {
+      if (taglineHighlightHasPlayedRef.current) return;
+      taglineHighlightHasPlayedRef.current = true;
+
+      if (reduceMq.matches) {
+        setTaglineHighlightStep(4);
+        return;
+      }
+
+      clearHighlightTimeouts();
+      for (let i = 1; i <= 4; i += 1) {
+        const delay =
+          SUMMIT_TAGLINE_HIGHLIGHT_INITIAL_DELAY_MS + SUMMIT_TAGLINE_HIGHLIGHT_STAGGER_MS * (i - 1);
+        taglineHighlightTimeoutsRef.current.push(
+          window.setTimeout(() => setTaglineHighlightStep(i), delay)
+        );
+      }
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        runTaglineHighlightSequence();
+        observer.disconnect();
+      },
+      { threshold: 0.3, rootMargin: "0px 0px -8% 0px" }
+    );
+
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+      clearHighlightTimeouts();
+    };
+  }, []);
+
   const startCheckout = async (priceId: string, slot: "early" | "regular") => {
     setCheckoutLoading(slot);
     try {
@@ -320,83 +388,17 @@ const Summit2026V1 = () => {
     }
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-
-    const trimmedName = formData.name.trim();
-    const trimmedEmail = formData.email.trim();
-
-    if (!trimmedName || trimmedName.length > 100) {
-      toast({
-        title: "Name required",
-        description: "Please enter your name (max 100 characters).",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!trimmedEmail || trimmedEmail.length > 255 || !emailRegex.test(trimmedEmail)) {
-      toast({
-        title: "Invalid email",
-        description: "Please enter a valid email address.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("join-summit-waitlist", {
-        body: {
-          name: trimmedName,
-          email: trimmedEmail,
-        },
-      });
-
-      if (error || !data?.success) {
-        console.error("[WAITLIST] Error response", error || data);
-        let apiError = "";
-        if (data && typeof data === "object" && "error" in data) {
-          const raw = (data as { error: unknown }).error;
-          if (raw != null && raw !== "") {
-            apiError = typeof raw === "string" ? raw.trim() : String(raw);
-          }
-        }
-        throw new Error(apiError || "Failed to join waitlist. Please try again.");
-      }
-
-      toast({
-        title: "You're on the waitlist!",
-        description:
-          "Thank you. We'll email you as soon as AIxUX Summit 2026 dates and tickets are announced.",
-      });
-
-      setFormData({ name: "", email: "" });
-    } catch (err: unknown) {
-      console.error("[WAITLIST] Submission error", err);
-      const fallback = "Something went wrong. Please try again or email us directly.";
-      const message = err instanceof Error ? err.message.trim() || fallback : fallback;
-      toast({
-        title: "Submission failed",
-        description: message,
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const earlyBirdProgressPct = (earlyBirdRemaining / EARLY_BIRD_SEATS) * 100;
 
   return (
     <main id="main" className="pb-20">
+      <Summit2026PointerGlow />
       {/* Full-viewport-width hero — art: public/summit-2026-hero-no-text.webp */}
       <section
-        className="relative w-screen max-w-[100vw] left-1/2 -translate-x-1/2 pt-6 sm:pt-8 md:pt-10"
+        className="relative w-screen max-w-[100vw] left-1/2 -translate-x-1/2"
         aria-label="AIxUX Summit 2026"
       >
-        <div className="relative w-full overflow-hidden bg-black border-y border-uxsg-ink/25 shadow-[0_4px_0_0_var(--uxsg-ink)] min-h-[min(42vw,240px)] sm:min-h-[min(36vw,320px)] md:min-h-[min(32vw,400px)] lg:min-h-[min(28vw,480px)]">
+        <div className="relative w-full overflow-hidden bg-black border-y border-uxsg-ink/25 shadow-[0_4px_0_0_var(--uxsg-ink)] min-h-[min(50vw,300px)] sm:min-h-[min(40vw,320px)] md:min-h-[min(32vw,400px)] lg:min-h-[min(28vw,480px)]">
           <img
             src={SUMMIT_HERO_IMAGE}
             alt=""
@@ -410,19 +412,19 @@ const Summit2026V1 = () => {
             className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/15 pointer-events-none"
             aria-hidden
           />
-          <div className="relative z-10 flex min-h-[inherit] flex-col items-center justify-center px-4 py-12 sm:px-8 sm:py-16 md:py-20 text-center">
+          <div className="relative z-10 flex min-h-[inherit] flex-col items-center justify-center px-4 py-10 sm:px-8 sm:py-16 md:py-20 text-center">
             <div className="mb-6 inline-flex items-center gap-3 border border-white/20 bg-white/10 px-4 py-1.5 font-body text-[10px] uppercase tracking-[0.2em] text-white/90 backdrop-blur-sm sm:text-xs">
               June 18-19, 2026 (EDT)
               <span className="h-1 w-1 shrink-0 rounded-full bg-[#facc15]" />
               Online / Global
             </div>
             <h1 className="font-heading font-black leading-[0.95] tracking-tight text-white">
-              <span className="block text-[clamp(1.75rem,6vw,4.5rem)]">
+              <span className="block text-[clamp(2.25rem,11vw,4.5rem)]">
                 <span className="text-white">AI</span>
-                <span className="relative mx-0.5 inline-block text-[#facc15] drop-shadow-[0_0_24px_rgba(250,204,21,0.9)] sm:mx-1">
+                <span className="relative mx-0.5 inline-block text-[#facc15] drop-shadow-[0_0_24px_rgba(250,204,21,0.8)] sm:mx-1">
                   X
                   <span
-                    className="absolute inset-0 -z-10 scale-150 rounded-full bg-[#facc15]/55 blur-md"
+                    className="pointer-events-none absolute inset-0 -z-10 origin-center rounded-full bg-[#facc15]/55 blur-sm motion-safe:animate-summit-hero-x-glow-pulse motion-reduce:scale-[1.2] motion-reduce:opacity-50 motion-reduce:animate-none"
                     aria-hidden
                   />
                 </span>
@@ -432,10 +434,15 @@ const Summit2026V1 = () => {
                 </span>
               </span>
             </h1>
-            <p className="font-headline relative mt-5 inline-block text-xl text-amber-100/95 sm:text-2xl md:text-3xl lg:text-4xl">
+            <p className="font-headline relative mt-4 inline-block text-2xl text-amber-100/95 sm:mt-5 sm:text-3xl md:text-4xl lg:text-4xl">
               Agentic Designer
               <span className="pointer-events-none absolute -bottom-1 left-0 right-0 block w-full text-amber-400/90">
-                <RoughWavyUnderline className="h-2.5 w-full sm:h-3 md:h-3.5" strokeW={6} expandToBounds />
+                <RoughWavyUnderline
+                  animated
+                  className="h-3 w-full sm:h-3.5 md:h-4"
+                  strokeW={6}
+                  expandToBounds
+                />
               </span>
             </p>
           </div>
@@ -449,21 +456,30 @@ const Summit2026V1 = () => {
               2 half days. Real builds. <br />
               For future-forward designers navigating the AI shift.
             </p>
-            <p className="font-body text-lg leading-relaxed text-muted-foreground md:text-xl">
-              Get <HandDrawnHighlight>real practice</HandDrawnHighlight> facilitated by a{" "}
-              <HandDrawnHighlight>community</HandDrawnHighlight> of builders who care about both{" "}
-              <HandDrawnHighlight>AI</HandDrawnHighlight> and{" "}
-              <HandDrawnHighlight>human experience</HandDrawnHighlight>.
+            <p
+              ref={taglineParagraphRef}
+              className="font-body text-lg leading-relaxed text-muted-foreground md:text-xl"
+            >
+              Get{" "}
+              <HandDrawnHighlight markVisible={taglineHighlightStep >= 1}>real practice</HandDrawnHighlight>{" "}
+              facilitated by a{" "}
+              <HandDrawnHighlight markVisible={taglineHighlightStep >= 2}>community</HandDrawnHighlight> of
+              builders who care about both{" "}
+              <HandDrawnHighlight markVisible={taglineHighlightStep >= 3}>AI</HandDrawnHighlight> and{" "}
+              <HandDrawnHighlight markVisible={taglineHighlightStep >= 4}>
+                human experience
+              </HandDrawnHighlight>
+              .
             </p>
             <div className="flex flex-col items-center gap-4 pt-2">
-              <div className="relative inline-flex shrink-0">
+              <div className="relative inline-flex shrink-0 transition-transform duration-200 hover:scale-105 active:scale-95">
                 <button
                   type="button"
                   onClick={scrollPricingBelowStickyHeader}
                   aria-describedby="hero-limited-seats-badge"
-                  className="relative inline-flex items-center justify-center rounded-full border-[1.5px] border-uxsg-ink bg-[#e67e22] px-10 py-5 font-heading text-xl font-extrabold text-white shadow-[1px_1px_0_0_var(--uxsg-ink),-1px_2px_0_0_var(--uxsg-ink)] transition-all hover:scale-105 active:scale-95"
+                  className="relative inline-flex origin-center items-center justify-center rounded-full border-[1.5px] border-uxsg-ink bg-[#e67e22] px-10 py-5 font-heading text-xl font-extrabold text-white shadow-[1px_1px_0_0_var(--uxsg-ink),-1px_2px_0_0_var(--uxsg-ink)] transition-colors motion-safe:hover:animate-summit-ticket-wiggle"
                 >
-                  Save My Spot
+                  Get My Ticket
                 </button>
                 <SketchyBadge
                   id="hero-limited-seats-badge"
@@ -495,13 +511,15 @@ const Summit2026V1 = () => {
         <div className="flex flex-col items-center lg:flex-row lg:flex-nowrap lg:justify-center lg:items-start gap-8 lg:gap-5 xl:gap-7 2xl:gap-8 w-full min-w-0">
           {SUMMIT_TESTIMONIALS.map((item, i) => (
             <div key={`${item.name}-${item.role}`} className={TESTIMONIAL_WALL_WRAPPERS[i]}>
-              <SketchyTestimonialNote
-                quote={item.quote}
-                name={item.name}
-                role={item.role}
-                avatarSrc={item.avatarSrc}
-                className="p-6 sm:p-8 lg:p-10 xl:p-12 w-full"
-              />
+              <div className={`${TESTIMONIAL_SETTLE_IN[i]} w-full min-w-0`}>
+                <SketchyTestimonialNote
+                  quote={item.quote}
+                  name={item.name}
+                  role={item.role}
+                  avatarSrc={item.avatarSrc}
+                  className="p-6 sm:p-8 lg:p-10 xl:p-12 w-full"
+                />
+              </div>
             </div>
           ))}
         </div>
@@ -584,14 +602,23 @@ const Summit2026V1 = () => {
       </section>
 
       {/* Facilitators */}
-      <section id="facilitators" className="max-w-7xl mx-auto px-6">
+      <section id="facilitators" className="max-w-7xl mx-auto px-6 scroll-mt-16 overflow-visible">
         <SketchySectionTitle className="mb-6">Meet the Facilitators</SketchySectionTitle>
-        <p className="font-body text-lg text-center text-foreground/90 mt-8 mb-16 max-w-2xl mx-auto">
-          Coming soon...hold tight!
-        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-x-6 lg:gap-y-6 relative overflow-visible">
+          {SUMMIT_2026_FACILITATORS.map((facilitator) => (
+            <Summit2026FacilitatorCard
+              key={facilitator.name}
+              name={facilitator.name}
+              roleLine={formatSummitFacilitatorRoleLine(facilitator.title, facilitator.company)}
+              bio={facilitator.bio}
+              imageSrc={facilitator.image}
+              linkedinUrl={facilitator.linkedin}
+            />
+          ))}
+        </div>
       </section>
 
-      {/* Pricing — waitlist + tickets */}
+      {/* Pricing — tickets (waitlist UI lives in `Summit2026WaitlistSection` if needed) */}
       <section
         id="pricing"
         className="relative w-full scroll-mt-16 overflow-hidden pt-8 pb-16 md:pt-10"
@@ -599,55 +626,6 @@ const Summit2026V1 = () => {
         <div className="absolute inset-0 gradient-hero opacity-10" aria-hidden />
         <div className="relative z-10 max-w-2xl md:max-w-4xl mx-auto px-6">
           <SketchySectionTitle className="mb-6">Get Your Ticket</SketchySectionTitle>
-
-          <div className="w-full mb-10 md:mb-12">
-            <section className="w-full rounded-3xl border border-uxsg-ink/10 bg-muted/50 px-6 py-6 sm:px-7 sm:py-7 md:px-8 md:py-8 lg:px-9 lg:py-9">
-              <p className="text-sm font-body text-uxsg-ink mb-2">
-                Join the waitlist to be in the loop for speaker announcements, agenda updates, and reminders.
-              </p>
-              <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <div className="flex-1 min-w-0 sm:max-w-xl">
-                  <label htmlFor="waitlist-name" className="sr-only">
-                    Your name
-                  </label>
-                  <SketchyHandDrawnInput
-                    id="waitlist-name"
-                    type="text"
-                    placeholder="Your name"
-                    value={formData.name}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                    disabled={isSubmitting}
-                    autoComplete="name"
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <label htmlFor="waitlist-email" className="sr-only">
-                    Your email
-                  </label>
-                  <SketchyHandDrawnInput
-                    id="waitlist-email"
-                    type="email"
-                    placeholder="Your email"
-                    value={formData.email}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
-                    disabled={isSubmitting}
-                    autoComplete="email"
-                  />
-                </div>
-                <SketchyIconButton
-                  type="submit"
-                  aria-label={isSubmitting ? "Joining waitlist" : "Join waitlist"}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  ) : (
-                    <Mail className="h-4 w-4" aria-hidden />
-                  )}
-                </SketchyIconButton>
-              </form>
-            </section>
-          </div>
 
           <div className="flex justify-center mb-10">
             <div className="inline-block p-4 bg-[#ffe24a] border-2 border-uxsg-ink -rotate-1 font-hand text-lg max-w-md text-center">

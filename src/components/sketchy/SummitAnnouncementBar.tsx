@@ -10,8 +10,7 @@ export const SummitAnnouncementBar = () => (
     <div className="container mx-auto px-4 py-1.5 sm:py-2">
       <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center font-body text-[0.7rem] leading-snug sm:text-xs md:gap-x-3">
         <span className="text-white/95">
-          AIxUX Summit 2026 <span aria-hidden>—</span> June 18–19 <span aria-hidden>·</span> Early Bird $2.90
-        </span>
+          AIxUX Summit 2026 <span aria-hidden>—</span> June 18–19  <span aria-hidden>|</span> Regular $29 <span aria-hidden>·</span> Spots are limited   </span>
         <Link
           to="/summit"
           className={cn(
@@ -20,7 +19,7 @@ export const SummitAnnouncementBar = () => (
             "focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-uxsg-ink rounded-sm"
           )}
         >
-          Save My Spot <span aria-hidden>→</span>
+          Get My Ticket <span aria-hidden>→</span>
         </Link>
       </p>
     </div>

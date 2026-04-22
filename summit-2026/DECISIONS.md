@@ -15,36 +15,37 @@
 
 ## Team
 - **Danny S** — Agenda, Sponsorship, Partnership, Email Marketing, Speaker Recruitment, Web Site(s), Ticketing
-- **Suye S** — Main producer, technical Implementation
+- **Suye S** — Main producer, Technical Implementation
 - **Hayley D** - Audience Engagement
 - **Sylvia B** - Marketing Assets
-- **Yatong W** - Audience Engagement
+- **Yatong W** - Audience Engagement, Web Site(s)
 - **Esther J G** - Sponsorship & Partnership
 - **Jerry** - Tech. support and video production
-- **Tim Bot(OpenClaw)** — Execution & technical support
+- **Tim Bot(OpenClaw)** — Execution & Technical support
 
 ## Agenda
 
 **Theme: Agentic Designer**
 
 ### DAY 1 — "The Shift"
-- 9:00 AM — Welcome
-- 9:15 AM — Keynote: Designer's New Mandate
-- 10:00 AM — Create Your Summit Agent (build a simple agent you'll use/refine throughout the summit)
-- 10:45 AM — Break
-- 11:00 AM — Trust, Transparency & Control
-- 12:00 PM — Multimodal Futures
-- 12:45 PM — Close & Day 2 preview
+- **9:00AM**: Welcome - Suyen
+- **9:15AM**: Keynote: Designer's New Mandate - Danny
+- **10:00AM**: Create Your Summit Agent (build a simple agent you'll use/refine throughout the summit) - Danny
+- **10:45AM**: Break
+- **11:00AM**: Trust, Transparency & Control - Silvia
+- **12:00PM**: TBD
+- **12:45PM**: Multimodal Futures - Corey
+- **1:30PM**: Close & Day 2 preview - Suyen/Danny
 
 ### DAY 2 — "The Practice"
-- 9:00 AM — Welcome back
-- 9:15 AM — Orchestrating Complexity
-- 10:15 AM — Break
-- 10:30 AM — Building Your Process
-- 11:30 AM — Your Path Forward
-- 12:15 PM — Break
-- 12:30 PM — Design Your AI Networking Agent (teams refine + collaborate with other agents)
-- 1:35 PM — Close
+- **9:00AM**: Welcome back - Suyen
+- **9:15AM**: Orchestrating Complexity - Volkan
+- **10:15AM**: Break
+- **10:30AM**: Building Your Process - Suyen
+- **11:30AM**: Your Path Forward - Renata
+- **12:15PM**: TBD
+- **1:00PM**: Design Your AI Networking Agent (teams refine + collaborate with other agents) - Alexis
+- **1:45PM**: Close - Suyen/Danny
 
 ## Decisions
 
@@ -52,6 +53,9 @@
 |------|----------|-------|
 | Feb 24, 2026 | Slack MCP connected to summit channel | Claude Assistant bot added to private channel |
 | Feb 24, 2026 | MEMORY.md + DECISIONS.md created in repo | MEMORY for Claude+Tim ops, DECISIONS for team |
+| Apr 2, 2026 | Summit 2026 landing page redesigned (draft) | Major content and style changes |
+| Apr 8, 2026 | Summit 2026 landing page live | Open for signups |
+| Apr 18, 2026 | Agenda in DECISION.md updated | Keep the source of truth consistent |
 
 ---
-*Last updated: Mar 20, 2026*
+*Last updated: Apr 18, 2026*

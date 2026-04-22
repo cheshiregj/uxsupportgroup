@@ -124,6 +124,24 @@ export default {
           "48%": { strokeDashoffset: "0" },
           "91%": { strokeDashoffset: "var(--rough-len)" },
         },
+        /** Summit /summit: soft yellow halo under the native cursor */
+        "summit-pointer-glow-pulse": {
+          "0%, 100%": { opacity: "0.35", transform: "scale(0.9)" },
+          "50%": { opacity: "0.72", transform: "scale(1.06)" },
+        },
+        /** Summit 2026 hero: halo behind the gold “X” (smaller than static scale-150, obvious breathe) */
+        "summit-hero-x-glow-pulse": {
+          "0%, 100%": { opacity: "0.42", transform: "scale(1.05)" },
+          "50%": { opacity: "0.8", transform: "scale(1.2)" },
+        },
+        /** Hero CTA: single-pass wiggle on hover (rotation only; parent handles scale). */
+        "summit-ticket-wiggle": {
+          "0%, 100%": { transform: "rotate(0deg)" },
+          "18%": { transform: "rotate(-5deg)" },
+          "36%": { transform: "rotate(5deg)" },
+          "54%": { transform: "rotate(-3deg)" },
+          "72%": { transform: "rotate(3deg)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -135,6 +153,12 @@ export default {
           "rough-underline-a 3.45s cubic-bezier(0.45, 0.05, 0.25, 1) infinite",
         "rough-underline-b":
           "rough-underline-b 2.78s cubic-bezier(0.4, 0.15, 0.35, 1) infinite",
+        "summit-pointer-glow-pulse":
+          "summit-pointer-glow-pulse 3s ease-in-out infinite",
+        "summit-hero-x-glow-pulse":
+          "summit-hero-x-glow-pulse 2s ease-in-out infinite",
+        "summit-ticket-wiggle":
+          "summit-ticket-wiggle 0.55s ease-in-out 1",
       },
     },
   },
