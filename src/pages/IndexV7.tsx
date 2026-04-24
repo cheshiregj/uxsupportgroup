@@ -1,4 +1,3 @@
-import UpcomingEvents from "@/components/UpcomingEvents";
 import { Check, Zap, Lock, Ticket } from "lucide-react";
 import miroBoard from "@/assets/miro-collaboration.png";
 import { SketchyBadge } from "@/components/sketchy/SketchyBadge";
@@ -10,7 +9,7 @@ import { SketchyStickyNote } from "@/components/sketchy/SketchyStickyNote";
 import { SketchyTallCard } from "@/components/sketchy/SketchyTallCard";
 
 /* ══════════════════════════════════════════════════════════════════
-   HOME PAGE CONTENT (used by Index and IndexV7 inside SketchyLayout)
+   HOME PAGE CONTENT (used by Index and IndexV7; hero, Two Ways, Lecture Hall)
    ══════════════════════════════════════════════════════════════════ */
 export function IndexV7Content() {
   return (
@@ -259,11 +258,6 @@ export function IndexV7Content() {
               </div>
             </div>
           </div>
-        </section>
-
-        {/* ─── UPCOMING SESSIONS ─── */}
-        <section className="paper-bg">
-          <UpcomingEvents variant="sketchy" />
         </section>
     </main>
   );
