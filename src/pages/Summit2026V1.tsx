@@ -294,7 +294,6 @@ const Summit2026V1 = () => {
   const [activeTicketTier, setActiveTicketTier] = useState<TicketTier>("regular");
   const [earlyBirdRemaining, setEarlyBirdRemaining] = useState(0);
   const [regularRemaining, setRegularRemaining] = useState(DEFAULT_REGULAR_REMAINING);
-  const [isCheckingAvailability, setIsCheckingAvailability] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<CheckoutSlot | null>(null);
   const [taglineHighlightStep, setTaglineHighlightStep] = useState(0);
   const taglineParagraphRef = useRef<HTMLParagraphElement>(null);
@@ -331,8 +330,6 @@ const Summit2026V1 = () => {
       setActiveTicketTier("regular");
       setEarlyBirdRemaining(0);
       setRegularRemaining(DEFAULT_REGULAR_REMAINING);
-    } finally {
-      setIsCheckingAvailability(false);
     }
   }, []);
 
@@ -690,13 +687,11 @@ const Summit2026V1 = () => {
 
           <div className="flex justify-center mb-10">
             <div className="inline-block p-4 bg-[#ffe24a] border-2 border-uxsg-ink -rotate-1 font-hand text-lg max-w-md text-center">
-              {isCheckingAvailability
-                ? "⚡ Checking ticket availability…"
-                : isEarlyBird
-                  ? `⚡ Early bird: only ${earlyBirdRemaining} of ${EARLY_BIRD_SEATS} left at $2.90 — then $29.`
-                  : isRegular
-                    ? `⚡ Regular tickets: ${regularRemaining} of ${REGULAR_SEATS} left at $29 — then late tickets are $299.`
-                    : "⚡ Regular tickets are sold out — late tickets are now $299."}
+              {isEarlyBird
+                ? `⚡ Early bird: only ${earlyBirdRemaining} of ${EARLY_BIRD_SEATS} left at $2.90 — then $29.`
+                : isRegular
+                  ? `⚡ Regular tickets: ${regularRemaining} of ${REGULAR_SEATS} left at $29 — then late tickets are $299.`
+                  : "⚡ Regular tickets are sold out — late tickets are now $299."}
             </div>
           </div>
 
@@ -738,7 +733,7 @@ const Summit2026V1 = () => {
                 type="button"
                 variant="dark-bg"
                 fullWidth
-                disabled={!isEarlyBird || isCheckingAvailability || checkoutLoading !== null}
+                disabled={!isEarlyBird || checkoutLoading !== null}
                 onClick={() => startCheckout(EARLY_BIRD_PRICE_ID, "early")}
               >
                 {checkoutLoading === "early"
@@ -785,7 +780,7 @@ const Summit2026V1 = () => {
                 type="button"
                 variant="dark-bg"
                 fullWidth
-                disabled={!isRegular || isCheckingAvailability || checkoutLoading !== null}
+                disabled={!isRegular || checkoutLoading !== null}
                 onClick={() => startCheckout(REGULAR_PRICE_ID, "regular")}
               >
                 {checkoutLoading === "regular"
@@ -823,7 +818,7 @@ const Summit2026V1 = () => {
                 type="button"
                 variant="dark-bg"
                 fullWidth
-                disabled={!isLate || isCheckingAvailability || checkoutLoading !== null}
+                disabled={!isLate || checkoutLoading !== null}
                 onClick={() => startCheckout(LATE_PRICE_ID, "late")}
               >
                 {checkoutLoading === "late"
