@@ -3,6 +3,8 @@ export const REGULAR_PRICE_ID = "price_1TIEdyEt4aAP5ylPN6ffwF5U";
 export const LATE_PRICE_ID = "price_1TSLGrEt4aAP5ylP9oTB0tFg";
 export const EARLY_BIRD_CAPACITY = 20;
 export const REGULAR_CAPACITY = 50;
+export const EARLY_BIRD_SOLD_FLOOR = 20;
+export const REGULAR_SOLD_FLOOR = 7;
 
 export type SummitTicketType = "early_bird" | "regular" | "late";
 export type SummitTicketPhase = SummitTicketType;
@@ -111,9 +113,12 @@ async function sessionTicketTypeFromLineItems(
 
 export type SummitTicketCountResult = {
   earlyBirdSold: number;
+  earlyBirdSoldFromStripe: number;
+  earlyBirdSoldFloor: number;
   regularSold: number;
   regularSoldFromStripe: number;
   regularSoldOffset: number;
+  regularSoldFloor: number;
   lateSold: number;
   truncated: boolean;
   sessionsExamined: number;
@@ -154,14 +159,22 @@ export async function countPaidSummitTicketSales(
   log?: (step: string, details?: Record<string, unknown>) => void
 ): Promise<SummitTicketCountResult> {
   const createdGte = envInt("SUMMIT_CHECKOUT_CREATED_GTE_UNIX", NaN, log);
+  const earlyBirdSoldFloor = Math.max(
+    0,
+    envInt("SUMMIT_EARLY_BIRD_SOLD_FLOOR", EARLY_BIRD_SOLD_FLOOR, log)
+  );
   const regularSoldOffset = Math.max(0, envInt("SUMMIT_REGULAR_SOLD_OFFSET", 0, log));
+  const regularSoldFloor = Math.max(
+    0,
+    envInt("SUMMIT_REGULAR_SOLD_FLOOR", REGULAR_SOLD_FLOOR, log)
+  );
 
   const maxSessions = Math.min(
     50_000,
     Math.max(100, envInt("SUMMIT_TICKET_MAX_SESSIONS_SCAN", 10000, log) || 10000)
   );
 
-  let earlyBirdSold = 0;
+  let earlyBirdSoldFromStripe = 0;
   let regularSoldFromStripe = 0;
   let lateSold = 0;
   let sessionsExamined = 0;
@@ -202,7 +215,7 @@ export async function countPaidSummitTicketSales(
       }
 
       if (type === "early_bird") {
-        earlyBirdSold++;
+        earlyBirdSoldFromStripe++;
       } else if (type === "regular") {
         regularSoldFromStripe++;
       } else if (type === "late") {
@@ -225,14 +238,23 @@ export async function countPaidSummitTicketSales(
 
   if (sessionsExamined >= maxSessions) {
     truncated = true;
-    log?.("Summit ticket count scan stopped at maxSessions", { maxSessions, earlyBirdSold, regularSoldFromStripe });
+    log?.("Summit ticket count scan stopped at maxSessions", {
+      maxSessions,
+      earlyBirdSoldFromStripe,
+      regularSoldFromStripe,
+    });
   }
 
+  const regularSoldWithOffset = regularSoldFromStripe + regularSoldOffset;
+
   return {
-    earlyBirdSold,
-    regularSold: regularSoldFromStripe + regularSoldOffset,
+    earlyBirdSold: Math.max(earlyBirdSoldFromStripe, earlyBirdSoldFloor),
+    earlyBirdSoldFromStripe,
+    earlyBirdSoldFloor,
+    regularSold: Math.max(regularSoldWithOffset, regularSoldFloor),
     regularSoldFromStripe,
     regularSoldOffset,
+    regularSoldFloor,
     lateSold,
     truncated,
     sessionsExamined,
