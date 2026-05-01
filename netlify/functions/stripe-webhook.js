@@ -38,23 +38,33 @@ export const handler = async (event) => {
   const session = stripeEvent.data.object;
   const { name, email } = session.customer_details || {};
   const amountTotal = session.amount_total; // in cents
+  const metadata = session.metadata || {};
 
   if (!email) {
     console.error('No email found in session');
     return { statusCode: 400, body: 'No email in session' };
   }
 
-  // Only summit tickets at exact prices: $2.90 (290¢) and $29.00 (2900¢)
+  // Prefer checkout metadata. Amount checks remain as a fallback for older sessions.
   const EARLY_BIRD_CENTS = 290;
   const REGULAR_CENTS = 2900;
+  const LATE_CENTS = 29900;
   let ticketType;
-  if (amountTotal === EARLY_BIRD_CENTS) {
+  if (metadata.ticket_type === 'early_bird') {
+    ticketType = 'Early Bird';
+  } else if (metadata.ticket_type === 'regular') {
+    ticketType = 'Regular';
+  } else if (metadata.ticket_type === 'late') {
+    ticketType = 'Late';
+  } else if (amountTotal === EARLY_BIRD_CENTS) {
     ticketType = 'Early Bird';
   } else if (amountTotal === REGULAR_CENTS) {
     ticketType = 'Regular';
+  } else if (amountTotal === LATE_CENTS) {
+    ticketType = 'Late';
   } else {
     console.log(
-      `Ignoring checkout: amount_total=${amountTotal} (only ${EARLY_BIRD_CENTS} or ${REGULAR_CENTS} cents sync to Brevo)`
+      `Ignoring checkout: amount_total=${amountTotal} (only ${EARLY_BIRD_CENTS}, ${REGULAR_CENTS}, or ${LATE_CENTS} cents sync to Brevo)`
     );
     return {
       statusCode: 200,

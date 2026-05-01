@@ -1,10 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import {
-  countPaidEarlyBirdSales,
-  EARLY_BIRD_CAPACITY,
-  EARLY_BIRD_PRICE_ID,
-  REGULAR_PRICE_ID,
+  getSummitTicketAvailability,
+  SUMMIT_PRICE_IDS,
+  type SummitTicketType,
 } from "../_shared/summitEarlyBird.ts";
 
 const corsHeaders = {
@@ -16,6 +15,12 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : "";
   console.log(`[CREATE-CHECKOUT] ${step}${detailsStr}`);
 };
+
+function ticketTypeFromPriceId(priceId: string): SummitTicketType | undefined {
+  return Object.entries(SUMMIT_PRICE_IDS).find(([, id]) => id === priceId)?.[0] as
+    | SummitTicketType
+    | undefined;
+}
 
 function checkoutBaseUrl(req: Request): string {
   const origin = req.headers.get("origin");
@@ -44,8 +49,8 @@ serve(async (req) => {
 
     const { priceId } = await req.json();
 
-    const allowed = new Set([EARLY_BIRD_PRICE_ID, REGULAR_PRICE_ID]);
-    if (!priceId || !allowed.has(priceId)) {
+    const ticketType = typeof priceId === "string" ? ticketTypeFromPriceId(priceId) : undefined;
+    if (!priceId || !ticketType) {
       throw new Error("Invalid or missing price ID");
     }
 
@@ -56,25 +61,34 @@ serve(async (req) => {
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
-    const { earlyBirdSold, truncated } = await countPaidEarlyBirdSales(stripe, (step, d) =>
+    const availability = await getSummitTicketAvailability(stripe, (step, d) =>
       logStep(step, d)
     );
 
-    if (truncated) {
-      logStep("WARNING early bird count may be incomplete", { earlyBirdSold });
+    if (availability.truncated) {
+      logStep("WARNING summit ticket count may be incomplete", {
+        earlyBirdSold: availability.earlyBirdSold,
+        regularSold: availability.regularSold,
+      });
     }
 
-    if (priceId === EARLY_BIRD_PRICE_ID) {
-      if (earlyBirdSold >= EARLY_BIRD_CAPACITY) {
-        throw new Error("Early bird tickets are sold out");
-      }
+    if (ticketType !== availability.activeTier) {
+      const messages: Record<SummitTicketType, string> = {
+        early_bird: "Early bird tickets are sold out",
+        regular:
+          availability.activeTier === "early_bird"
+            ? "Regular tickets are available after early bird sells out"
+            : "Regular tickets just sold out — late tickets are now available",
+        late: "Late tickets are available after regular tickets sell out",
+      };
+      throw new Error(messages[ticketType]);
     }
 
-    if (priceId === REGULAR_PRICE_ID) {
-      if (earlyBirdSold < EARLY_BIRD_CAPACITY) {
-        throw new Error("Regular tickets are available after early bird sells out");
-      }
-    }
+    logStep("Checkout tier approved", {
+      ticketType,
+      activeTier: availability.activeTier,
+      regularRemaining: availability.regularRemaining,
+    });
 
     const base = checkoutBaseUrl(req);
     if (!base) {
@@ -91,7 +105,7 @@ serve(async (req) => {
       mode: "payment",
       metadata: {
         price_id: priceId,
-        ticket_type: priceId === EARLY_BIRD_PRICE_ID ? "early_bird" : "regular",
+        ticket_type: ticketType,
         product: "aixux_summit_2026",
       },
       success_url: `${base}/summit?checkout=success`,
