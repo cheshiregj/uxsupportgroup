@@ -1,9 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
-import {
-  countPaidEarlyBirdSales,
-  EARLY_BIRD_CAPACITY,
-} from "../_shared/summitEarlyBird.ts";
+import { getSummitTicketAvailability } from "../_shared/summitEarlyBird.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,28 +25,22 @@ serve(async (req) => {
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
-    const { earlyBirdSold, truncated, sessionsExamined } = await countPaidEarlyBirdSales(
+    const availability = await getSummitTicketAvailability(
       stripe,
       (step, d) => logStep(step, d)
     );
 
-    logStep("Early bird count complete", {
-      earlyBirdSold,
-      sessionsExamined,
-      truncated,
+    logStep("Summit ticket availability complete", {
+      activeTier: availability.activeTier,
+      earlyBirdSold: availability.earlyBirdSold,
+      regularSold: availability.regularSold,
+      regularRemaining: availability.regularRemaining,
+      sessionsExamined: availability.sessionsExamined,
+      truncated: availability.truncated,
     });
 
-    const isEarlyBirdAvailable = earlyBirdSold < EARLY_BIRD_CAPACITY;
-    const earlyBirdRemaining = Math.max(0, EARLY_BIRD_CAPACITY - earlyBirdSold);
-
     return new Response(
-      JSON.stringify({
-        isEarlyBird: isEarlyBirdAvailable,
-        earlyBirdSold,
-        earlyBirdRemaining,
-        truncated,
-        sessionsExamined,
-      }),
+      JSON.stringify(availability),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
