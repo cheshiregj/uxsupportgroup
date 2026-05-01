@@ -28,11 +28,18 @@ const REGULAR_PRICE_ID = "price_1TIEdyEt4aAP5ylPN6ffwF5U";
 const LATE_PRICE_ID = "price_1TSLGrEt4aAP5ylP9oTB0tFg";
 const EARLY_BIRD_SEATS = 20;
 const REGULAR_SEATS = 50;
+const KNOWN_EARLY_BIRD_SOLD = 20;
 const KNOWN_REGULAR_SOLD = 7;
 const DEFAULT_REGULAR_REMAINING = REGULAR_SEATS - KNOWN_REGULAR_SOLD;
 
 type TicketTier = "early_bird" | "regular" | "late";
 type CheckoutSlot = "early" | "regular" | "late";
+
+type NormalizedTicketAvailability = {
+  activeTier: TicketTier;
+  earlyBirdRemaining: number;
+  regularRemaining: number;
+};
 
 const SUMMIT_HERO_IMAGE = "/summit-2026-hero-no-text.webp";
 
@@ -61,6 +68,47 @@ function describeInvokeError(err: unknown): string {
     return "Checkout could not reach the server. If this keeps happening, email info@uxsupportgroup.com.";
   }
   return msg.trim() || "Something went wrong.";
+}
+
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizeTicketAvailability(data: unknown): NormalizedTicketAvailability {
+  const record = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+  const serverTier = record.activeTier;
+
+  const earlyBirdRemainingFromServer = finiteNumber(record.earlyBirdRemaining);
+  const earlyBirdSoldFromServer =
+    finiteNumber(record.earlyBirdSold) ??
+    (earlyBirdRemainingFromServer === undefined
+      ? undefined
+      : EARLY_BIRD_SEATS - earlyBirdRemainingFromServer);
+  const earlyBirdSold = Math.max(KNOWN_EARLY_BIRD_SOLD, earlyBirdSoldFromServer ?? 0);
+  const earlyBirdRemaining = Math.max(0, EARLY_BIRD_SEATS - earlyBirdSold);
+
+  const regularRemainingFromServer = finiteNumber(record.regularRemaining);
+  const regularSoldFromServer =
+    finiteNumber(record.regularSold) ??
+    (regularRemainingFromServer === undefined
+      ? undefined
+      : REGULAR_SEATS - regularRemainingFromServer);
+  const regularTierSoldFloor = serverTier === "late" ? REGULAR_SEATS : KNOWN_REGULAR_SOLD;
+  const regularSold = Math.max(regularTierSoldFloor, regularSoldFromServer ?? 0);
+  const regularRemaining = Math.max(0, REGULAR_SEATS - regularSold);
+
+  const activeTier =
+    earlyBirdSold < EARLY_BIRD_SEATS
+      ? "early_bird"
+      : regularSold < REGULAR_SEATS
+        ? "regular"
+        : "late";
+
+  return {
+    activeTier,
+    earlyBirdRemaining,
+    regularRemaining,
+  };
 }
 
 const SUMMIT_TESTIMONIALS = [
@@ -274,19 +322,10 @@ const Summit2026V1 = () => {
           sessionsExamined: (data as { sessionsExamined?: number }).sessionsExamined,
         });
       }
-      const nextTier =
-        data.activeTier === "regular" || data.activeTier === "late" ? data.activeTier : "early_bird";
-      setActiveTicketTier(nextTier);
-      setEarlyBirdRemaining(
-        typeof data.earlyBirdRemaining === "number"
-          ? data.earlyBirdRemaining
-          : 0
-      );
-      setRegularRemaining(
-        typeof data.regularRemaining === "number"
-          ? data.regularRemaining
-          : DEFAULT_REGULAR_REMAINING
-      );
+      const availability = normalizeTicketAvailability(data);
+      setActiveTicketTier(availability.activeTier);
+      setEarlyBirdRemaining(availability.earlyBirdRemaining);
+      setRegularRemaining(availability.regularRemaining);
     } catch (e) {
       console.error("[TICKETS] Availability fetch failed", e);
       setActiveTicketTier("regular");
