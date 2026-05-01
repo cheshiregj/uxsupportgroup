@@ -28,6 +28,8 @@ const REGULAR_PRICE_ID = "price_1TIEdyEt4aAP5ylPN6ffwF5U";
 const LATE_PRICE_ID = "price_1TSLGrEt4aAP5ylP9oTB0tFg";
 const EARLY_BIRD_SEATS = 20;
 const REGULAR_SEATS = 50;
+const KNOWN_REGULAR_SOLD = 7;
+const DEFAULT_REGULAR_REMAINING = REGULAR_SEATS - KNOWN_REGULAR_SOLD;
 
 type TicketTier = "early_bird" | "regular" | "late";
 type CheckoutSlot = "early" | "regular" | "late";
@@ -241,9 +243,9 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
 ];
 
 const Summit2026V1 = () => {
-  const [activeTicketTier, setActiveTicketTier] = useState<TicketTier>("early_bird");
-  const [earlyBirdRemaining, setEarlyBirdRemaining] = useState(EARLY_BIRD_SEATS);
-  const [regularRemaining, setRegularRemaining] = useState(REGULAR_SEATS);
+  const [activeTicketTier, setActiveTicketTier] = useState<TicketTier>("regular");
+  const [earlyBirdRemaining, setEarlyBirdRemaining] = useState(0);
+  const [regularRemaining, setRegularRemaining] = useState(DEFAULT_REGULAR_REMAINING);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<CheckoutSlot | null>(null);
   const [taglineHighlightStep, setTaglineHighlightStep] = useState(0);
@@ -256,9 +258,9 @@ const Summit2026V1 = () => {
       const { data, error } = await supabase.functions.invoke("check-ticket-availability");
       if (error || !data) {
         console.error("[TICKETS] Availability error", error, data);
-        setActiveTicketTier("early_bird");
-        setEarlyBirdRemaining(EARLY_BIRD_SEATS);
-        setRegularRemaining(REGULAR_SEATS);
+        setActiveTicketTier("regular");
+        setEarlyBirdRemaining(0);
+        setRegularRemaining(DEFAULT_REGULAR_REMAINING);
         return;
       }
       if (import.meta.env.DEV && data && typeof data === "object") {
@@ -278,18 +280,18 @@ const Summit2026V1 = () => {
       setEarlyBirdRemaining(
         typeof data.earlyBirdRemaining === "number"
           ? data.earlyBirdRemaining
-          : EARLY_BIRD_SEATS
+          : 0
       );
       setRegularRemaining(
         typeof data.regularRemaining === "number"
           ? data.regularRemaining
-          : REGULAR_SEATS
+          : DEFAULT_REGULAR_REMAINING
       );
     } catch (e) {
       console.error("[TICKETS] Availability fetch failed", e);
-      setActiveTicketTier("early_bird");
-      setEarlyBirdRemaining(EARLY_BIRD_SEATS);
-      setRegularRemaining(REGULAR_SEATS);
+      setActiveTicketTier("regular");
+      setEarlyBirdRemaining(0);
+      setRegularRemaining(DEFAULT_REGULAR_REMAINING);
     } finally {
       setIsCheckingAvailability(false);
     }
