@@ -12,6 +12,15 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[CHECK-AVAILABILITY] ${step}${detailsStr}`);
 };
 
+const AVAILABILITY_CACHE_TTL_MS = 15_000;
+
+let cachedAvailability:
+  | {
+      expiresAt: number;
+      body: string;
+    }
+  | undefined;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -19,6 +28,14 @@ serve(async (req) => {
 
   try {
     logStep("Function started");
+
+    if (cachedAvailability && Date.now() < cachedAvailability.expiresAt) {
+      logStep("Serving cached availability");
+      return new Response(cachedAvailability.body, {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
@@ -39,13 +56,16 @@ serve(async (req) => {
       truncated: availability.truncated,
     });
 
-    return new Response(
-      JSON.stringify(availability),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      }
-    );
+    const body = JSON.stringify(availability);
+    cachedAvailability = {
+      expiresAt: Date.now() + AVAILABILITY_CACHE_TTL_MS,
+      body,
+    };
+
+    return new Response(body, {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in check-availability", { message: errorMessage });
