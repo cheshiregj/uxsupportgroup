@@ -25,7 +25,21 @@ import { CheckCircle2, HandHeart, MessagesSquare, PencilLine, Star, Users, XCirc
 
 const EARLY_BIRD_PRICE_ID = "price_1TIEduEt4aAP5ylPU5RJtO6s";
 const REGULAR_PRICE_ID = "price_1TIEdyEt4aAP5ylPN6ffwF5U";
+const LATE_PRICE_ID = "price_1TSLGrEt4aAP5ylP9oTB0tFg";
 const EARLY_BIRD_SEATS = 20;
+const REGULAR_SEATS = 50;
+const KNOWN_EARLY_BIRD_SOLD = 20;
+const KNOWN_REGULAR_SOLD = 7;
+const DEFAULT_REGULAR_REMAINING = REGULAR_SEATS - KNOWN_REGULAR_SOLD;
+
+type TicketTier = "early_bird" | "regular" | "late";
+type CheckoutSlot = "early" | "regular" | "late";
+
+type NormalizedTicketAvailability = {
+  activeTier: TicketTier;
+  earlyBirdRemaining: number;
+  regularRemaining: number;
+};
 
 const SUMMIT_HERO_IMAGE = "/summit-2026-hero-no-text.webp";
 
@@ -54,6 +68,47 @@ function describeInvokeError(err: unknown): string {
     return "Checkout could not reach the server. If this keeps happening, email info@uxsupportgroup.com.";
   }
   return msg.trim() || "Something went wrong.";
+}
+
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizeTicketAvailability(data: unknown): NormalizedTicketAvailability {
+  const record = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+  const serverTier = record.activeTier;
+
+  const earlyBirdRemainingFromServer = finiteNumber(record.earlyBirdRemaining);
+  const earlyBirdSoldFromServer =
+    finiteNumber(record.earlyBirdSold) ??
+    (earlyBirdRemainingFromServer === undefined
+      ? undefined
+      : EARLY_BIRD_SEATS - earlyBirdRemainingFromServer);
+  const earlyBirdSold = Math.max(KNOWN_EARLY_BIRD_SOLD, earlyBirdSoldFromServer ?? 0);
+  const earlyBirdRemaining = Math.max(0, EARLY_BIRD_SEATS - earlyBirdSold);
+
+  const regularRemainingFromServer = finiteNumber(record.regularRemaining);
+  const regularSoldFromServer =
+    finiteNumber(record.regularSold) ??
+    (regularRemainingFromServer === undefined
+      ? undefined
+      : REGULAR_SEATS - regularRemainingFromServer);
+  const regularTierSoldFloor = serverTier === "late" ? REGULAR_SEATS : KNOWN_REGULAR_SOLD;
+  const regularSold = Math.max(regularTierSoldFloor, regularSoldFromServer ?? 0);
+  const regularRemaining = Math.max(0, REGULAR_SEATS - regularSold);
+
+  const activeTier =
+    earlyBirdSold < EARLY_BIRD_SEATS
+      ? "early_bird"
+      : regularSold < REGULAR_SEATS
+        ? "regular"
+        : "late";
+
+  return {
+    activeTier,
+    earlyBirdRemaining,
+    regularRemaining,
+  };
 }
 
 const SUMMIT_TESTIMONIALS = [
@@ -236,10 +291,10 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
 ];
 
 const Summit2026V1 = () => {
-  const [isEarlyBird, setIsEarlyBird] = useState(true);
-  const [earlyBirdRemaining, setEarlyBirdRemaining] = useState(EARLY_BIRD_SEATS);
-  const [isCheckingAvailability, setIsCheckingAvailability] = useState(true);
-  const [checkoutLoading, setCheckoutLoading] = useState<"early" | "regular" | null>(null);
+  const [activeTicketTier, setActiveTicketTier] = useState<TicketTier>("regular");
+  const [earlyBirdRemaining, setEarlyBirdRemaining] = useState(0);
+  const [regularRemaining, setRegularRemaining] = useState(DEFAULT_REGULAR_REMAINING);
+  const [checkoutLoading, setCheckoutLoading] = useState<CheckoutSlot | null>(null);
   const [taglineHighlightStep, setTaglineHighlightStep] = useState(0);
   const taglineParagraphRef = useRef<HTMLParagraphElement>(null);
   const taglineHighlightHasPlayedRef = useRef(false);
@@ -250,30 +305,31 @@ const Summit2026V1 = () => {
       const { data, error } = await supabase.functions.invoke("check-ticket-availability");
       if (error || !data) {
         console.error("[TICKETS] Availability error", error, data);
-        setIsEarlyBird(true);
-        setEarlyBirdRemaining(EARLY_BIRD_SEATS);
+        setActiveTicketTier("regular");
+        setEarlyBirdRemaining(0);
+        setRegularRemaining(DEFAULT_REGULAR_REMAINING);
         return;
       }
       if (import.meta.env.DEV && data && typeof data === "object") {
         console.info("[TICKETS] Availability", {
+          activeTier: (data as { activeTier?: TicketTier }).activeTier,
           earlyBirdSold: (data as { earlyBirdSold?: number }).earlyBirdSold,
           earlyBirdRemaining: (data as { earlyBirdRemaining?: number }).earlyBirdRemaining,
+          regularSold: (data as { regularSold?: number }).regularSold,
+          regularRemaining: (data as { regularRemaining?: number }).regularRemaining,
           truncated: (data as { truncated?: boolean }).truncated,
           sessionsExamined: (data as { sessionsExamined?: number }).sessionsExamined,
         });
       }
-      setIsEarlyBird(Boolean(data.isEarlyBird));
-      setEarlyBirdRemaining(
-        typeof data.earlyBirdRemaining === "number"
-          ? data.earlyBirdRemaining
-          : EARLY_BIRD_SEATS
-      );
+      const availability = normalizeTicketAvailability(data);
+      setActiveTicketTier(availability.activeTier);
+      setEarlyBirdRemaining(availability.earlyBirdRemaining);
+      setRegularRemaining(availability.regularRemaining);
     } catch (e) {
       console.error("[TICKETS] Availability fetch failed", e);
-      setIsEarlyBird(true);
-      setEarlyBirdRemaining(EARLY_BIRD_SEATS);
-    } finally {
-      setIsCheckingAvailability(false);
+      setActiveTicketTier("regular");
+      setEarlyBirdRemaining(0);
+      setRegularRemaining(DEFAULT_REGULAR_REMAINING);
     }
   }, []);
 
@@ -352,7 +408,7 @@ const Summit2026V1 = () => {
     };
   }, []);
 
-  const startCheckout = async (priceId: string, slot: "early" | "regular") => {
+  const startCheckout = async (priceId: string, slot: CheckoutSlot) => {
     setCheckoutLoading(slot);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
@@ -382,13 +438,15 @@ const Summit2026V1 = () => {
         variant: "destructive",
       });
       setCheckoutLoading(null);
-      if (priceId === EARLY_BIRD_PRICE_ID) {
-        fetchAvailability();
-      }
+      fetchAvailability();
     }
   };
 
   const earlyBirdProgressPct = (earlyBirdRemaining / EARLY_BIRD_SEATS) * 100;
+  const regularProgressPct = (regularRemaining / REGULAR_SEATS) * 100;
+  const isEarlyBird = activeTicketTier === "early_bird";
+  const isRegular = activeTicketTier === "regular";
+  const isLate = activeTicketTier === "late";
 
   return (
     <main id="main" className="pb-20">
@@ -629,15 +687,15 @@ const Summit2026V1 = () => {
 
           <div className="flex justify-center mb-10">
             <div className="inline-block p-4 bg-[#ffe24a] border-2 border-uxsg-ink -rotate-1 font-hand text-lg max-w-md text-center">
-              {isCheckingAvailability
-                ? "⚡ Checking early bird availability…"
-                : isEarlyBird
-                  ? `⚡ Early bird: only ${earlyBirdRemaining} of ${EARLY_BIRD_SEATS} left at $2.90 — then $29.`
-                  : "⚡ Early bird is sold out — regular tickets are $29."}
+              {isEarlyBird
+                ? `⚡ Early bird: only ${earlyBirdRemaining} of ${EARLY_BIRD_SEATS} left at $2.90 — then $29.`
+                : isRegular
+                  ? `⚡ Regular tickets: ${regularRemaining} of ${REGULAR_SEATS} left at $29 — then late tickets are $299.`
+                  : "⚡ Regular tickets are sold out — late tickets are now $299."}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <SketchyTallCard
               variant="light"
               fill="#ffe24a"
@@ -675,7 +733,7 @@ const Summit2026V1 = () => {
                 type="button"
                 variant="dark-bg"
                 fullWidth
-                disabled={!isEarlyBird || isCheckingAvailability || checkoutLoading !== null}
+                disabled={!isEarlyBird || checkoutLoading !== null}
                 onClick={() => startCheckout(EARLY_BIRD_PRICE_ID, "early")}
               >
                 {checkoutLoading === "early"
@@ -700,29 +758,74 @@ const Summit2026V1 = () => {
               <div>
                 <h3 className="font-headline text-2xl mb-4 text-uxsg-ink">Regular</h3>
                 <div className="text-4xl font-black mb-2 text-uxsg-ink">$29</div>
-                <p className="font-body text-sm mb-8 opacity-80">
+                <p className="font-body text-sm mb-4 opacity-80">
                   Standard access once early bird ({EARLY_BIRD_SEATS} tickets) is gone.
                   <br />
                   <br />
-                  Ticket sales help us cover subscription costs and keep the event accessible.
+                  Limited to {REGULAR_SEATS} regular tickets before late pricing begins.
+                </p>
+                {(isRegular || isLate) && (
+                  <div className="mb-6 space-y-2">
+                    <div className="flex justify-between text-xs font-body opacity-90">
+                      <span>Regular tickets left</span>
+                      <span className="font-bold">
+                        {regularRemaining}/{REGULAR_SEATS}
+                      </span>
+                    </div>
+                    <Progress value={regularProgressPct} className="h-2" />
+                  </div>
+                )}
+              </div>
+              <SketchyRectButton
+                type="button"
+                variant="dark-bg"
+                fullWidth
+                disabled={!isRegular || checkoutLoading !== null}
+                onClick={() => startCheckout(REGULAR_PRICE_ID, "regular")}
+              >
+                {checkoutLoading === "regular"
+                  ? "Opening checkout…"
+                  : isEarlyBird
+                    ? "Available after early bird"
+                    : isLate
+                      ? "Sold Out"
+                      : "Get Regular Ticket"}
+              </SketchyRectButton>
+            </SketchyTallCard>
+            <SketchyTallCard
+              variant="light"
+              fill="#f97316"
+              strokeWidth={1.5}
+              paddingClassName="p-8"
+              tapes={[
+                { position: "topLeft", size: "sm" },
+                { position: "bottomRight", size: "sm" },
+              ]}
+              className="h-full"
+              innerClassName="flex flex-col justify-between min-h-[300px]"
+            >
+              <div>
+                <h3 className="font-headline text-2xl mb-4 text-white">Late Ticket</h3>
+                <div className="text-4xl font-black mb-2 text-white">$299</div>
+                <p className="font-body text-sm mb-8 text-white/90">
+                  Final ticket tier after the limited regular tickets sell out.
+                  <br />
+                  <br />
+                  Secure your spot while summit access is still available.
                 </p>
               </div>
               <SketchyRectButton
                 type="button"
                 variant="dark-bg"
                 fullWidth
-                disabled={
-                  isCheckingAvailability ||
-                  checkoutLoading !== null ||
-                  (isEarlyBird && earlyBirdRemaining > 0)
-                }
-                onClick={() => startCheckout(REGULAR_PRICE_ID, "regular")}
+                disabled={!isLate || checkoutLoading !== null}
+                onClick={() => startCheckout(LATE_PRICE_ID, "late")}
               >
-                {checkoutLoading === "regular"
+                {checkoutLoading === "late"
                   ? "Opening checkout…"
-                  : isEarlyBird && earlyBirdRemaining > 0
-                    ? "Available after early bird"
-                    : "Get Regular Ticket"}
+                  : isLate
+                    ? "Get Late Ticket"
+                    : "Available after regular"}
               </SketchyRectButton>
             </SketchyTallCard>
           </div>

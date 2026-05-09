@@ -1,6 +1,19 @@
 export const EARLY_BIRD_PRICE_ID = "price_1TIEduEt4aAP5ylPU5RJtO6s";
 export const REGULAR_PRICE_ID = "price_1TIEdyEt4aAP5ylPN6ffwF5U";
+export const LATE_PRICE_ID = "price_1TSLGrEt4aAP5ylP9oTB0tFg";
 export const EARLY_BIRD_CAPACITY = 20;
+export const REGULAR_CAPACITY = 50;
+export const EARLY_BIRD_SOLD_FLOOR = 20;
+export const REGULAR_SOLD_FLOOR = 7;
+
+export type SummitTicketType = "early_bird" | "regular" | "late";
+export type SummitTicketPhase = SummitTicketType;
+
+export const SUMMIT_PRICE_IDS: Record<SummitTicketType, string> = {
+  early_bird: EARLY_BIRD_PRICE_ID,
+  regular: REGULAR_PRICE_ID,
+  late: LATE_PRICE_ID,
+};
 
 type SessionLineItems = {
   data?: Array<{ price?: unknown }>;
@@ -16,7 +29,7 @@ type SessionListItem = {
   line_items?: SessionLineItems;
 };
 
-type StripeForEarlyBird = {
+type StripeForSummitTickets = {
   checkout: {
     sessions: {
       list: (params: Record<string, unknown>) => Promise<{
@@ -42,11 +55,16 @@ export function lineItemPriceId(item: { price?: unknown }): string | undefined {
   return undefined;
 }
 
-function isEarlyBirdFromMetadata(meta: Record<string, string> | null | undefined): boolean {
-  if (!meta) return false;
-  if (meta.ticket_type === "early_bird") return true;
-  if (meta.price_id === EARLY_BIRD_PRICE_ID) return true;
-  return false;
+function ticketTypeFromMetadata(
+  meta: Record<string, string> | null | undefined
+): SummitTicketType | undefined {
+  if (!meta) return undefined;
+  if (meta.ticket_type === "early_bird" || meta.ticket_type === "regular" || meta.ticket_type === "late") {
+    return meta.ticket_type;
+  }
+  return Object.entries(SUMMIT_PRICE_IDS).find(([, priceId]) => meta.price_id === priceId)?.[0] as
+    | SummitTicketType
+    | undefined;
 }
 
 /**
@@ -54,73 +72,123 @@ function isEarlyBirdFromMetadata(meta: Record<string, string> | null | undefined
  * Returns null when expanded data is missing or truncated (`has_more`), so callers
  * can fall back to `listLineItems`.
  */
-function earlyBirdFromExpandedLineItems(
+function ticketTypeFromExpandedLineItems(
   lineItems: SessionLineItems | undefined
-): boolean | null {
+): SummitTicketType | null | undefined {
   if (!lineItems?.data) return null;
-  const hit = lineItems.data.some((item) => lineItemPriceId(item) === EARLY_BIRD_PRICE_ID);
-  if (hit) return true;
+  for (const item of lineItems.data) {
+    const priceId = lineItemPriceId(item);
+    const type = Object.entries(SUMMIT_PRICE_IDS).find(([, id]) => id === priceId)?.[0] as
+      | SummitTicketType
+      | undefined;
+    if (type) return type;
+  }
   if (lineItems.has_more) return null;
-  return false;
+  return undefined;
 }
 
-async function sessionHasEarlyBirdPrice(
-  stripe: StripeForEarlyBird,
+async function sessionTicketTypeFromLineItems(
+  stripe: StripeForSummitTickets,
   sessionId: string,
   log?: (step: string, details?: Record<string, unknown>) => void
-): Promise<boolean> {
+): Promise<SummitTicketType | undefined> {
   try {
     const lines = await stripe.checkout.sessions.listLineItems(sessionId, { limit: 24 });
-    return lines.data.some((item) => lineItemPriceId(item) === EARLY_BIRD_PRICE_ID);
+    for (const item of lines.data) {
+      const priceId = lineItemPriceId(item);
+      const type = Object.entries(SUMMIT_PRICE_IDS).find(([, id]) => id === priceId)?.[0] as
+        | SummitTicketType
+        | undefined;
+      if (type) return type;
+    }
+    return undefined;
   } catch (e) {
     log?.("listLineItems failed", {
       sessionId,
       error: e instanceof Error ? e.message : String(e),
     });
-    return false;
+    return undefined;
   }
 }
 
-export type EarlyBirdCountResult = {
+export type SummitTicketCountResult = {
   earlyBirdSold: number;
+  earlyBirdSoldFromStripe: number;
+  earlyBirdSoldFloor: number;
+  regularSold: number;
+  regularSoldFromStripe: number;
+  regularSoldOffset: number;
+  regularSoldFloor: number;
+  lateSold: number;
   truncated: boolean;
   sessionsExamined: number;
 };
 
+export type SummitTicketAvailability = SummitTicketCountResult & {
+  activeTier: SummitTicketPhase;
+  isEarlyBird: boolean;
+  earlyBirdRemaining: number;
+  regularRemaining: number;
+  regularCapacity: number;
+};
+
+function envInt(name: string, fallback: number, log?: (step: string, details?: Record<string, unknown>) => void): number {
+  const raw = Deno.env.get(name);
+  if (!raw) return fallback;
+  const parsed = parseInt(raw, 10);
+  if (Number.isNaN(parsed)) {
+    log?.(`Invalid ${name} ignored`, { raw });
+    return fallback;
+  }
+  return parsed;
+}
+
+export function activeSummitTicketPhase(earlyBirdSold: number, regularSold: number): SummitTicketPhase {
+  if (earlyBirdSold < EARLY_BIRD_CAPACITY) return "early_bird";
+  if (regularSold < REGULAR_CAPACITY) return "regular";
+  return "late";
+}
+
 /**
- * Count paid Checkout sessions for early-bird tickets.
+ * Count paid Checkout sessions for summit tickets.
  * Prefer session metadata (set by create-checkout); otherwise use line items expanded on each list page
  * (avoids one Stripe round-trip per session). Falls back to listLineItems when expansion is incomplete.
  */
-export async function countPaidEarlyBirdSales(
-  stripe: StripeForEarlyBird,
+export async function countPaidSummitTicketSales(
+  stripe: StripeForSummitTickets,
   log?: (step: string, details?: Record<string, unknown>) => void
-): Promise<EarlyBirdCountResult> {
-  const createdGteRaw = Deno.env.get("SUMMIT_CHECKOUT_CREATED_GTE_UNIX");
-  const createdGte = createdGteRaw ? parseInt(createdGteRaw, 10) : undefined;
-  if (createdGteRaw && Number.isNaN(createdGte)) {
-    log?.("Invalid SUMMIT_CHECKOUT_CREATED_GTE_UNIX ignored", { raw: createdGteRaw });
-  }
+): Promise<SummitTicketCountResult> {
+  const createdGte = envInt("SUMMIT_CHECKOUT_CREATED_GTE_UNIX", NaN, log);
+  const earlyBirdSoldFloor = Math.max(
+    0,
+    envInt("SUMMIT_EARLY_BIRD_SOLD_FLOOR", EARLY_BIRD_SOLD_FLOOR, log)
+  );
+  const regularSoldOffset = Math.max(0, envInt("SUMMIT_REGULAR_SOLD_OFFSET", 0, log));
+  const regularSoldFloor = Math.max(
+    0,
+    envInt("SUMMIT_REGULAR_SOLD_FLOOR", REGULAR_SOLD_FLOOR, log)
+  );
 
   const maxSessions = Math.min(
     50_000,
-    Math.max(100, parseInt(Deno.env.get("SUMMIT_EARLY_BIRD_MAX_SESSIONS_SCAN") ?? "10000", 10) || 10000)
+    Math.max(100, envInt("SUMMIT_TICKET_MAX_SESSIONS_SCAN", 10000, log) || 10000)
   );
 
-  let earlyBirdSold = 0;
+  let earlyBirdSoldFromStripe = 0;
+  let regularSoldFromStripe = 0;
+  let lateSold = 0;
   let sessionsExamined = 0;
   let startingAfter: string | undefined;
   let truncated = false;
-  let done = false;
 
-  while (sessionsExamined < maxSessions && !done) {
+  while (sessionsExamined < maxSessions) {
     const params: Record<string, unknown> = {
       limit: 100,
       status: "complete",
       expand: ["data.line_items"],
     };
     if (startingAfter) params.starting_after = startingAfter;
-    if (createdGte != null && !Number.isNaN(createdGte)) {
+    if (!Number.isNaN(createdGte)) {
       params.created = { gte: createdGte };
     }
 
@@ -131,35 +199,37 @@ export async function countPaidEarlyBirdSales(
       sessionsExamined++;
       if (session.payment_status !== "paid") continue;
 
-      const fromMeta = isEarlyBirdFromMetadata(session.metadata ?? undefined);
-      let isEarly = fromMeta;
+      const fromMeta = ticketTypeFromMetadata(session.metadata ?? undefined);
+      let type = fromMeta;
       let lineItemSource: "expanded" | "fetched" | undefined;
 
-      if (!isEarly) {
-        const fromExpand = earlyBirdFromExpandedLineItems(session.line_items);
+      if (!type) {
+        const fromExpand = ticketTypeFromExpandedLineItems(session.line_items);
         if (fromExpand === null) {
-          isEarly = await sessionHasEarlyBirdPrice(stripe, session.id, log);
+          type = await sessionTicketTypeFromLineItems(stripe, session.id, log);
           lineItemSource = "fetched";
         } else {
-          isEarly = fromExpand;
+          type = fromExpand;
           lineItemSource = "expanded";
         }
       }
 
-      if (isEarly) {
-        earlyBirdSold++;
-        log?.("Early bird sale counted", {
+      if (type === "early_bird") {
+        earlyBirdSoldFromStripe++;
+      } else if (type === "regular") {
+        regularSoldFromStripe++;
+      } else if (type === "late") {
+        lateSold++;
+      }
+
+      if (type) {
+        log?.("Summit ticket sale counted", {
           sessionId: session.id,
+          ticketType: type,
           source: fromMeta ? "metadata" : lineItemSource === "fetched" ? "line_items" : "line_items_expanded",
         });
-        if (earlyBirdSold >= EARLY_BIRD_CAPACITY) {
-          done = true;
-          break;
-        }
       }
     }
-
-    if (done) break;
 
     if (!page.has_more) break;
     startingAfter = page.data[page.data.length - 1]?.id;
@@ -168,8 +238,41 @@ export async function countPaidEarlyBirdSales(
 
   if (sessionsExamined >= maxSessions) {
     truncated = true;
-    log?.("Early bird count scan stopped at maxSessions", { maxSessions, earlyBirdSold });
+    log?.("Summit ticket count scan stopped at maxSessions", {
+      maxSessions,
+      earlyBirdSoldFromStripe,
+      regularSoldFromStripe,
+    });
   }
 
-  return { earlyBirdSold, truncated, sessionsExamined };
+  const regularSoldWithOffset = regularSoldFromStripe + regularSoldOffset;
+
+  return {
+    earlyBirdSold: Math.max(earlyBirdSoldFromStripe, earlyBirdSoldFloor),
+    earlyBirdSoldFromStripe,
+    earlyBirdSoldFloor,
+    regularSold: Math.max(regularSoldWithOffset, regularSoldFloor),
+    regularSoldFromStripe,
+    regularSoldOffset,
+    regularSoldFloor,
+    lateSold,
+    truncated,
+    sessionsExamined,
+  };
+}
+
+export async function getSummitTicketAvailability(
+  stripe: StripeForSummitTickets,
+  log?: (step: string, details?: Record<string, unknown>) => void
+): Promise<SummitTicketAvailability> {
+  const counts = await countPaidSummitTicketSales(stripe, log);
+  const activeTier = activeSummitTicketPhase(counts.earlyBirdSold, counts.regularSold);
+  return {
+    ...counts,
+    activeTier,
+    isEarlyBird: activeTier === "early_bird",
+    earlyBirdRemaining: Math.max(0, EARLY_BIRD_CAPACITY - counts.earlyBirdSold),
+    regularRemaining: Math.max(0, REGULAR_CAPACITY - counts.regularSold),
+    regularCapacity: REGULAR_CAPACITY,
+  };
 }
