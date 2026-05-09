@@ -682,7 +682,7 @@ const Summit2026V1 = () => {
         className="relative w-full scroll-mt-16 overflow-hidden pt-8 pb-16 md:pt-10"
       >
         <div className="absolute inset-0 gradient-hero opacity-10" aria-hidden />
-        <div className="relative z-10 max-w-2xl md:max-w-4xl mx-auto px-6">
+        <div className="relative z-10 max-w-4xl md:max-w-6xl mx-auto px-6">
           <SketchySectionTitle className="mb-6">Get Your Ticket</SketchySectionTitle>
 
           <div className="flex justify-center mb-10">
