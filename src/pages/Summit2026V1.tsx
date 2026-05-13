@@ -3,19 +3,32 @@ import { Link } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
 import { Accordion, AccordionContent } from "@/components/ui/accordion";
 import { MembershipAccordionItem, MembershipAccordionTrigger } from "@/components/MembershipAccordion";
-import { HandDrawnHighlight } from "@/components/sketchy/HandDrawnHighlight";
+import { HandDrawnHighlight, HandDrawnHighlightSVG } from "@/components/sketchy/HandDrawnHighlight";
 import { SketchyRectButton } from "@/components/sketchy/SketchyCTA";
 import { RoughWavyUnderline } from "@/components/sketchy/RoughWavyUnderline";
 import { SketchyBadge } from "@/components/sketchy/SketchyBadge";
 import { SketchySectionTitle } from "@/components/sketchy/SketchySectionTitle";
 import { Summit2026PointerGlow } from "@/components/sketchy/Summit2026PointerGlow";
 import { SketchyTallCard } from "@/components/sketchy/SketchyTallCard";
+import { SketchyTape } from "@/components/sketchy/SketchyTape";
 import { SketchyTestimonialNote } from "@/components/sketchy/SketchyTestimonialNote";
 import { Summit2026FacilitatorCard } from "@/components/sketchy/Summit2026FacilitatorCard";
 import {
+  Summit2026FacilitatorModal,
+  type SummitFacilitatorModalSpeaker,
+} from "@/components/sketchy/Summit2026FacilitatorModal";
+import {
   formatSummitFacilitatorRoleLine,
   SUMMIT_2026_FACILITATORS,
+  buildSummitFacilitatorModalSpeaker,
 } from "@/data/summit2026Facilitators";
+import {
+  AGENDA_DAY1,
+  AGENDA_DAY2,
+  agendaRowKey,
+  hasAgendaDetails,
+  getPrimaryFacilitatorSession,
+} from "@/data/summit2026Agenda";
 import EstherJ from "@/assets/EstherJ.jpg";
 import FarooqK from "@/assets/FarooqK-3.jpg";
 import JolieC from "@/assets/JolieC.png";
@@ -150,85 +163,6 @@ const TESTIMONIAL_SETTLE_IN = [
 
 const CARD_FILL = "hsl(var(--card))";
 
-type AgendaRow = { time: string; title: string; facilitator?: string };
-
-const AGENDA_DAY1: AgendaRow[] = [
-  {
-    time: "09:00 AM",
-    title: "Welcome",
-    facilitator: "Suyen",
-  },
-  {
-    time: "09:15 AM",
-    title: "Keynote: Designer's New Mandate",
-    facilitator: "Danny",
-  },
-  {
-    time: "10:00 AM",
-    title:
-      "Create Your Summit Agent (build a simple agent you'll use/refine throughout the summit)",
-    facilitator: "Danny",
-  },
-  { time: "10:45 AM", title: "Break" },
-  {
-    time: "11:00 AM",
-    title: "Trust, Transparency & Control",
-    facilitator: "Silvia",
-  },
-  {
-    time: "12:00 PM",
-    title: "TBD",
-  },
-  {
-    time: "12:45 PM",
-    title: "Multimodal Futures",
-    facilitator: "Corey",
-  },
-  {
-    time: "01:30 PM",
-    title: "Close & Day 2 preview",
-    facilitator: "Suyen/Danny",
-  },
-];
-
-const AGENDA_DAY2: AgendaRow[] = [
-  {
-    time: "09:00 AM",
-    title: "Welcome back",
-    facilitator: "Suyen",
-  },
-  {
-    time: "09:15 AM",
-    title: "Orchestrating Complexity",
-    facilitator: "Volkan",
-  },
-  { time: "10:15 AM", title: "Break" },
-  {
-    time: "10:30 AM",
-    title: "Building Your Process",
-    facilitator: "Suyen",
-  },
-  {
-    time: "11:30 AM",
-    title: "Your Path Forward",
-    facilitator: "Renata",
-  },
-  {
-    time: "12:15 PM",
-    title: "TBD",
-  },
-  {
-    time: "01:00 PM",
-    title: "Design Your AI Networking Agent (teams refine + collaborate with other agents)",
-    facilitator: "Alexis",
-  },
-  {
-    time: "01:45 PM",
-    title: "Close",
-    facilitator: "Suyen/Danny",
-  },
-];
-
 const FEATURE_ROWS: { icon: typeof PencilLine; text: string }[] = [
   { icon: PencilLine, text: "Hands-on labs where you build real AI x UX artifacts." },
   { icon: Users, text: "Opportunities to make great connections with peers and experts." },
@@ -250,6 +184,28 @@ const NOT_FOR_YOU = [
   "You're only here for high-profile celebrity keynotes.",
   "You want purely theoretical academic discussions.",
 ];
+
+const SUMMIT_TEAM: { name: string; role: string }[] = [
+  { name: "Danny S", role: "Agenda, Sponsorship, Partnership, Email Marketing, Speaker Recruitment, Web Site(s), Ticketing" },
+  { name: "Suye S", role: "Main producer, Technical Implementation" },
+  { name: "Hayley D", role: "Audience Engagement" },
+  { name: "Sylvia B", role: "Marketing Assets" },
+  { name: "Yatong W", role: "Audience Engagement, Web Site(s)" },
+  { name: "Esther J G", role: "Sponsorship & Partnership" },
+  { name: "Jerry", role: "Tech. support and video production" },
+  { name: "Tim Bot (OpenClaw)", role: "Execution & Technical support" },
+];
+
+const TEAM_CARD_ROTATIONS = [
+  "-rotate-2",
+  "rotate-1",
+  "-rotate-1",
+  "rotate-2",
+  "-rotate-[1.5deg]",
+  "rotate-[1.5deg]",
+  "-rotate-[0.5deg]",
+  "rotate-[0.5deg]",
+] as const;
 
 const FAQ_ITEMS: { q: string; a: string }[] = [
   {
@@ -296,6 +252,8 @@ const Summit2026V1 = () => {
   const [regularRemaining, setRegularRemaining] = useState(DEFAULT_REGULAR_REMAINING);
   const [checkoutLoading, setCheckoutLoading] = useState<CheckoutSlot | null>(null);
   const [taglineHighlightStep, setTaglineHighlightStep] = useState(0);
+  const [flippedRowByDay, setFlippedRowByDay] = useState<Record<string, string | null>>({});
+  const [activeSpeaker, setActiveSpeaker] = useState<SummitFacilitatorModalSpeaker | null>(null);
   const taglineParagraphRef = useRef<HTMLParagraphElement>(null);
   const taglineHighlightHasPlayedRef = useRef(false);
   const taglineHighlightTimeoutsRef = useRef<number[]>([]);
@@ -555,9 +513,10 @@ const Summit2026V1 = () => {
                 <span>10+ tools covered. Attendees from 3 continents.</span>
                 <Link
                   to="/summit-2025"
-                  className="font-hand text-xl text-muted-foreground underline decoration-uxsg-ink/40 underline-offset-6 transition-colors hover:text-foreground hover:decoration-uxsg-ink"
+                  className="summit-see-last-year font-hand text-xl text-muted-foreground underline decoration-uxsg-ink/40 underline-offset-6 transition-colors"
                 >
-                  See last year →
+                  <HandDrawnHighlightSVG className="summit-button-highlight" />
+                  <span className="relative z-[1]">See last year →</span>
                 </Link>
               </div>
             </div>
@@ -629,33 +588,126 @@ const Summit2026V1 = () => {
               { day: "Day 1 - June 18 (Thursday)", theme: "The Shift", rows: AGENDA_DAY1 },
               { day: "Day 2 -June 19 (Friday)", theme: "The Practice", rows: AGENDA_DAY2 },
             ] as const
-          ).map(({ day, theme, rows }) => (
-            <div key={day} className="summit-notebook-sheet p-8 pl-14 relative">
-              <div className="summit-notebook-margin-rail" aria-hidden />
-              <h3 className="font-headline text-3xl mb-2 text-uxsg-ink relative z-10">{day}</h3>
-              <p className="font-body text-uxsg-rsvp font-bold mb-8 italic relative z-10">
-                Theme: &ldquo;{theme}&rdquo;
-              </p>
-              <div className="space-y-4 relative z-10">
-                {rows.map((row) => (
+          ).map(({ day, theme, rows }) => {
+            const flippedKey = flippedRowByDay[day] ?? null;
+            const flippedRow = flippedKey
+              ? rows.find((r) => agendaRowKey(r) === flippedKey)
+              : null;
+            const isFlipped = Boolean(flippedRow);
+            return (
+              <div
+                key={day}
+                className={`summit-flip-card h-full ${isFlipped ? "is-flipped" : ""}`}
+              >
+                <div className="summit-flip-inner h-full">
                   <div
-                    key={`${row.time}-${row.title}`}
-                    className="summit-notebook-row flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-4 font-mono text-[0.95rem] text-neutral-600"
+                    className="summit-flip-face summit-flip-front summit-notebook-sheet p-8 pl-14 relative h-full"
+                    aria-hidden={isFlipped}
                   >
-                    <span className="font-hand shrink-0 text-neutral-700">{row.time}</span>
-                    <div className="text-right min-w-0 sm:max-w-[min(100%,22rem)]">
-                      <span className="block font-bold">{row.title}</span>
-                      {row.facilitator ? (
-                        <span className="block font-body text-sm text-muted-foreground mt-0.5">
-                          {row.facilitator}
-                        </span>
-                      ) : null}
+                    <div className="summit-notebook-margin-rail" aria-hidden />
+                    <h3 className="font-headline text-3xl mb-2 text-uxsg-ink relative z-10">{day}</h3>
+                    <p className="font-body text-uxsg-rsvp font-bold mb-8 italic relative z-10">
+                      Theme: &ldquo;{theme}&rdquo;
+                    </p>
+                    <div className="relative z-10">
+                      {rows.map((row) => {
+                        const key = agendaRowKey(row);
+                        const clickable = hasAgendaDetails(row);
+                        const rowContent = (
+                          <>
+                            <span className="font-hand shrink-0 text-neutral-700">{row.time}</span>
+                            <div className="text-left min-w-0 sm:max-w-[min(100%,22rem)]">
+                              <span className="block font-bold">{row.title}</span>
+                              {row.facilitator ? (
+                                <span className="block font-body text-sm text-muted-foreground mt-0.5">
+                                  {row.facilitator}
+                                </span>
+                              ) : null}
+                            </div>
+                          </>
+                        );
+                        return clickable ? (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() =>
+                              setFlippedRowByDay((prev) => ({ ...prev, [day]: key }))
+                            }
+                            className="summit-notebook-row summit-notebook-row--clickable w-full flex flex-col sm:flex-row gap-1 sm:gap-4 font-mono text-[0.95rem] text-neutral-600 text-left"
+                          >
+                            {rowContent}
+                            <span
+                              aria-hidden
+                              className="summit-detail-pill font-hand sm:ml-auto self-start mt-1 sm:mt-0 shrink-0"
+                            >
+                              <HandDrawnHighlightSVG className="summit-button-highlight" />
+                              <span className="relative z-[1]">detail →</span>
+                            </span>
+                            <span className="sr-only">View session details</span>
+                          </button>
+                        ) : (
+                          <div
+                            key={key}
+                            className="summit-notebook-row flex flex-col sm:flex-row gap-1 sm:gap-4 font-mono text-[0.95rem] text-neutral-600"
+                          >
+                            {rowContent}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                ))}
+                  <div
+                    className="summit-flip-face summit-flip-back summit-notebook-sheet p-8 pl-14 relative"
+                    aria-hidden={!isFlipped}
+                  >
+                    <div className="summit-notebook-margin-rail" aria-hidden />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFlippedRowByDay((prev) => ({ ...prev, [day]: null }))
+                      }
+                      className="summit-back-to-agenda font-hand text-base mb-8 relative z-10"
+                    >
+                      <HandDrawnHighlightSVG className="summit-button-highlight" />
+                      <span className="relative z-[1]">← Back to agenda</span>
+                    </button>
+                    {flippedRow ? (
+                      <div className="relative z-10">
+                        <p className="font-hand text-lg text-neutral-700 mb-1">
+                          {flippedRow.time}
+                        </p>
+                        <h3 className="font-headline text-2xl mb-2 text-uxsg-ink">
+                          {flippedRow.title}
+                        </h3>
+                        {flippedRow.facilitator ? (
+                          <p className="font-body text-sm text-muted-foreground mb-4 italic">
+                            with {flippedRow.facilitator}
+                          </p>
+                        ) : null}
+                        {flippedRow.details?.description ? (
+                          <p className="font-body text-base text-foreground/90 mb-4 whitespace-pre-line">
+                            {flippedRow.details.description}
+                          </p>
+                        ) : null}
+                        {flippedRow.details?.outcomes && flippedRow.details.outcomes.length > 0 ? (
+                          <>
+                            <p className="font-body font-bold text-sm uppercase tracking-wide text-uxsg-ink mb-2">
+                              You&rsquo;ll leave with
+                            </p>
+                            <ul className="font-body text-base text-foreground/90 list-disc pl-5 space-y-1">
+                              {flippedRow.details.outcomes.map((o) => (
+                                <li key={o}>{o}</li>
+                              ))}
+                            </ul>
+                          </>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -663,18 +715,34 @@ const Summit2026V1 = () => {
       <section id="facilitators" className="max-w-7xl mx-auto px-6 scroll-mt-16 overflow-visible">
         <SketchySectionTitle className="mb-6">Meet the Facilitators</SketchySectionTitle>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-x-6 lg:gap-y-6 relative overflow-visible">
-          {SUMMIT_2026_FACILITATORS.map((facilitator) => (
-            <Summit2026FacilitatorCard
-              key={facilitator.name}
-              name={facilitator.name}
-              roleLine={formatSummitFacilitatorRoleLine(facilitator.title, facilitator.company)}
-              bio={facilitator.bio}
-              imageSrc={facilitator.image}
-              linkedinUrl={facilitator.linkedin}
-            />
-          ))}
+          {SUMMIT_2026_FACILITATORS.map((facilitator) => {
+            const primary = getPrimaryFacilitatorSession(
+              facilitator.name,
+              facilitator.excludeSessionTitles,
+            );
+            return (
+              <Summit2026FacilitatorCard
+                key={facilitator.name}
+                name={facilitator.name}
+                roleLine={formatSummitFacilitatorRoleLine(facilitator.title, facilitator.company)}
+                imageSrc={facilitator.image}
+                linkedinUrl={facilitator.linkedin}
+                sessionTitle={primary?.title}
+                sessionDayTime={primary ? `${primary.dayLabel} · ${primary.time}` : undefined}
+                keynote={facilitator.keynote}
+                onOpen={() =>
+                  setActiveSpeaker(buildSummitFacilitatorModalSpeaker(facilitator))
+                }
+              />
+            );
+          })}
         </div>
       </section>
+
+      <Summit2026FacilitatorModal
+        speaker={activeSpeaker}
+        onClose={() => setActiveSpeaker(null)}
+      />
 
       {/* Pricing — tickets (waitlist UI lives in `Summit2026WaitlistSection` if needed) */}
       <section
@@ -881,6 +949,39 @@ const Summit2026V1 = () => {
             </MembershipAccordionItem>
           ))}
         </Accordion>
+      </section>
+
+      {/* The team */}
+      <section className="w-full px-6 pb-8">
+        <SketchySectionTitle
+          className="mb-10"
+          titleClassName="text-2xl md:text-3xl font-black text-uxsg-ink text-center whitespace-nowrap font-headline"
+          underlineStrokeW={2}
+        >
+          The team who made this happen
+        </SketchySectionTitle>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-x-4 gap-y-6 pt-2">
+          {SUMMIT_TEAM.map((member, i) => (
+            <div
+              key={member.name}
+              className={`relative bg-white border border-uxsg-ink/80 shadow-[1px_1px_0_0_var(--uxsg-ink)] px-3 pt-4 pb-3 ${TEAM_CARD_ROTATIONS[i % TEAM_CARD_ROTATIONS.length]}`}
+            >
+              <SketchyTape
+                position={i % 2 === 0 ? "topLeft" : "topRight"}
+                size="sm"
+                className="!bg-[#ffe24a]/70"
+              />
+              <div className="font-body min-w-0">
+                <p className="font-bold text-xs md:text-sm text-uxsg-ink leading-tight">
+                  {member.name}
+                </p>
+                <p className="mt-1 text-xs opacity-70 leading-snug">
+                  {member.role}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
       </div>
     </main>

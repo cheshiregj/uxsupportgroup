@@ -1,15 +1,22 @@
-import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { SketchyBadge } from "./SketchyBadge";
+import { HandDrawnHighlightSVG } from "@/components/sketchy/HandDrawnHighlight";
 
 export type Summit2026FacilitatorCardProps = {
   name: string;
   /** Shown below the name, uppercase (e.g. title @ company). */
   roleLine: string;
-  bio: string;
   /** Avatar URL; omit for placeholder initials. */
   imageSrc?: string;
   imageAlt?: string;
   linkedinUrl: string;
+  /** Session this facilitator is leading (title + day/time). */
+  sessionTitle?: string;
+  sessionDayTime?: string;
+  /** If true, render a "Keynote Speaker" callout above the name. */
+  keynote?: boolean;
+  /** Fires when the card is clicked (anywhere except the LinkedIn icon). */
+  onOpen?: () => void;
 };
 
 function LinkedInIcon({ className }: { className?: string }) {
@@ -33,25 +40,43 @@ function avatarInitials(name: string): string {
 export function Summit2026FacilitatorCard({
   name,
   roleLine,
-  bio,
   imageSrc,
   imageAlt,
   linkedinUrl,
+  sessionTitle,
+  sessionDayTime,
+  keynote,
+  onOpen,
 }: Summit2026FacilitatorCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [showToggle, setShowToggle] = useState(false);
-  const bioRef = useRef<HTMLParagraphElement>(null);
-
   const showLinkedin = linkedinUrl !== "#" && linkedinUrl.trim() !== "";
+  const isClickable = typeof onOpen === "function";
 
-  useEffect(() => {
-    if (bioRef.current) {
-      setShowToggle(bioRef.current.scrollHeight > bioRef.current.clientHeight + 1);
+  const handleClick = () => {
+    if (onOpen) onOpen();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!onOpen) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onOpen();
     }
-  }, [bio]);
+  };
 
   return (
-    <div className="summit-facilitator-card-frame relative group transform hover:-translate-y-1">
+    <div
+      className={cn(
+        "summit-facilitator-card-frame relative group transform transition-transform",
+        isClickable &&
+          "cursor-pointer hover:-translate-y-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-uxsg-rsvp focus-visible:ring-offset-2 rounded",
+      )}
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      aria-haspopup={isClickable ? "dialog" : undefined}
+      aria-label={isClickable ? `Open details for ${name}` : undefined}
+      onClick={isClickable ? handleClick : undefined}
+      onKeyDown={isClickable ? handleKeyDown : undefined}
+    >
       <div
         className="summit-pushpin summit-pushpin--tilt pointer-events-none"
         aria-hidden
@@ -61,8 +86,10 @@ export function Summit2026FacilitatorCard({
         <div className="summit-pushpin-shaft" />
         <span className="summit-pushpin-point" />
       </div>
-      <div className="relative z-0 bg-card p-8 pb-10 summit-facilitator-paper">
-        <div className="flex items-start justify-between mb-6 gap-3">
+
+      <div className="relative z-0 bg-card p-8 pb-8 summit-facilitator-paper flex flex-col gap-5">
+        {/* Top row: photo + LinkedIn */}
+        <div className="flex items-start justify-between gap-3">
           <div
             className="w-20 h-20 rounded-full border-2 border-uxsg-rsvp p-1 shrink-0 overflow-hidden bg-muted flex items-center justify-center"
             role={imageSrc ? undefined : "img"}
@@ -82,38 +109,71 @@ export function Summit2026FacilitatorCard({
           </div>
           {showLinkedin ? (
             <a
-              className="inline-flex shrink-0 text-[#0A66C2] transition-all duration-200 ease-in-out hover:scale-112"
+              className="inline-flex shrink-0 text-[#0A66C2] transition-all duration-200 ease-in-out hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0A66C2] focus-visible:ring-offset-2 rounded"
               href={linkedinUrl}
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Visit ${name}'s LinkedIn profile`}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
             >
               <LinkedInIcon className="h-6 w-6 fill-current" />
             </a>
           ) : null}
         </div>
-        <h3 className="font-headline text-2xl mb-1 text-foreground">{name}</h3>
-        <p className="font-body font-semibold text-sm text-uxsg-rsvp uppercase tracking-wider mb-4">{roleLine}</p>
+
+        {/* Identity */}
         <div>
-          <p
-            ref={bioRef}
-            className={cn(
-              "font-body text-sm text-muted-foreground leading-relaxed transition-all duration-300",
-              !isExpanded && "line-clamp-4",
-            )}
-          >
-            {bio}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
+            <h3 className="font-headline text-2xl text-foreground leading-tight">
+              {name}
+            </h3>
+            {keynote ? (
+              <SketchyBadge
+                variant="ink"
+                rotation="subtle"
+                className="shadow-sm whitespace-nowrap"
+              >
+                ★ Keynote Speaker
+              </SketchyBadge>
+            ) : null}
+          </div>
+          <p className="font-body font-semibold text-sm text-uxsg-rsvp uppercase tracking-wider">
+            {roleLine}
           </p>
-          {showToggle ? (
-            <button
-              type="button"
-              className="ml-1 text-sm text-uxsg-rsvp hover:text-uxsg-rsvp/80 transition-colors font-medium inline-block"
-              onClick={() => setIsExpanded(!isExpanded)}
-            >
-              {isExpanded ? " Less" : " More"}
-            </button>
-          ) : null}
         </div>
+
+        {/* Session */}
+        {sessionTitle || sessionDayTime ? (
+          <>
+            <hr className="border-0 border-t border-dashed border-uxsg-ink/25" />
+            <div>
+              <p className="font-body text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">
+                Leading
+              </p>
+              {sessionTitle ? (
+                <p className="font-body text-[15px] font-semibold text-uxsg-ink leading-snug">
+                  {sessionTitle}
+                </p>
+              ) : null}
+              {sessionDayTime ? (
+                <p className="font-hand text-base text-neutral-700 leading-tight mt-1">
+                  {sessionDayTime}
+                </p>
+              ) : null}
+            </div>
+          </>
+        ) : null}
+
+        {isClickable ? (
+          <span
+            aria-hidden
+            className="summit-detail-pill font-hand self-end mt-1 shrink-0"
+          >
+            <HandDrawnHighlightSVG className="summit-button-highlight" />
+            <span className="relative z-[1]">bio →</span>
+          </span>
+        ) : null}
       </div>
     </div>
   );

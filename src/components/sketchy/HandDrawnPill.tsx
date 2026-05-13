@@ -25,6 +25,7 @@ export const HandDrawnPill = ({
       stroke={stroke}
       strokeWidth="1.5"
       strokeLinejoin="round"
+      vectorEffect="non-scaling-stroke"
     />
   </svg>
 );

@@ -142,6 +142,19 @@ export default {
           "54%": { transform: "rotate(-3deg)" },
           "72%": { transform: "rotate(3deg)" },
         },
+        /** Facilitator modal pin: on-open hint nudge so users notice it's grabbable. Composed with the base translate-x(-50%) + rotate via custom property fallback. */
+        "summit-pin-hint": {
+          "0%, 100%": { translate: "0 0" },
+          "20%": { translate: "0 4px" },
+          "40%": { translate: "0 0" },
+          "60%": { translate: "0 3px" },
+          "80%": { translate: "0 0" },
+        },
+        /** Facilitator modal "drag to close" tooltip pulse. */
+        "summit-pin-tooltip-pulse": {
+          "0%, 100%": { opacity: "0.55", transform: "translateY(0)" },
+          "50%": { opacity: "1", transform: "translateY(2px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -159,6 +172,10 @@ export default {
           "summit-hero-x-glow-pulse 2s ease-in-out infinite",
         "summit-ticket-wiggle":
           "summit-ticket-wiggle 0.55s ease-in-out 1",
+        "summit-pin-hint":
+          "summit-pin-hint 1.4s ease-in-out 2",
+        "summit-pin-tooltip-pulse":
+          "summit-pin-tooltip-pulse 1.6s ease-in-out infinite",
       },
     },
   },
