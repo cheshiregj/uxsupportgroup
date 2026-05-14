@@ -187,13 +187,15 @@ const NOT_FOR_YOU = [
 
 const SUMMIT_TEAM: { name: string; role: string }[] = [
   { name: "Danny S", role: "Agenda, Sponsorship, Partnership, Email Marketing, Speaker Recruitment, Web Site(s), Ticketing" },
-  { name: "Suye S", role: "Main producer, Technical Implementation" },
-  { name: "Hayley D", role: "Audience Engagement" },
+  { name: "Suye S", role: "Main Producer, Technical Implementation" },
+  { name: "Hayley D", role: "Audience Engagement, Sponsorship & Partnership" },
   { name: "Sylvia B", role: "Marketing Assets" },
-  { name: "Yatong W", role: "Audience Engagement, Web Site(s)" },
+  { name: "Yatong W", role: "Web Site(s), Sponsorship & Partnership" },
   { name: "Esther J G", role: "Sponsorship & Partnership" },
-  { name: "Jerry", role: "Tech. support and video production" },
-  { name: "Tim Bot (OpenClaw)", role: "Execution & Technical support" },
+  { name: "Renata R", role: "Agenda, Audience Experience" },
+  { name: "Maria T R", role: "Sponsorship & Partnership" },
+  { name: "Jerry", role: "Tech Support, Video Production" },
+  { name: "Tim Bot (OpenClaw)", role: "Execution & Tech Support" },
 ];
 
 const TEAM_CARD_ROTATIONS = [

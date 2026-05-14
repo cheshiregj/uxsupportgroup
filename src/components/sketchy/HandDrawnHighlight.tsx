@@ -76,7 +76,7 @@ export function HandDrawnHighlight({
         <span className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
           <span
             className={cn(
-              "relative block h-full w-full origin-left motion-safe:transition-transform motion-safe:duration-[420ms] motion-safe:ease-out motion-reduce:transition-none",
+              "relative block h-full w-full origin-left motion-safe:transition-transform motion-safe:[transition-duration:420ms] motion-safe:ease-out motion-reduce:transition-none",
               markVisible ? "scale-x-100" : "scale-x-0"
             )}
           >
