@@ -176,10 +176,11 @@ const SponsorContactSection = () => {
                     <SelectValue placeholder="Select..." />
                   </SelectTrigger>
                   <SelectContent className="bg-background">
-                    <SelectItem value="Quarterly Partnership - $5,000">Quarterly Partnership - $5,000</SelectItem>
+                    <SelectItem value="Quarterly Partnership - $7,500">Quarterly Partnership - $7,500</SelectItem>
+                    <SelectItem value="Community Presence — $2,500">Community Presence — $2,500</SelectItem>
                     <SelectItem value="Custom Community Partnership">Custom Community Partnership</SelectItem>
                     <SelectItem value="Standard (Free) Sponsor">Standard (Free) Sponsor</SelectItem>
-                    <SelectItem value="Virtual Booth Add-On - $400">Virtual Booth Add-On - $400</SelectItem>
+                    <SelectItem value="Virtual Booth Add-On - $750">Virtual Booth Add-On - $750</SelectItem>
                     <SelectItem value="Custom Summit Partnership">Custom Summit Partnership</SelectItem>
                     <SelectItem value="Both Community + Summit">Both Community + Summit</SelectItem>
                     <SelectItem value="Just Exploring">Just Exploring</SelectItem>

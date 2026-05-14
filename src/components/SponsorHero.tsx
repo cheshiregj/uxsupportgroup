@@ -52,7 +52,7 @@ const SponsorHero = () => {
               </div>
               <div className="text-center p-6">
                 <div className="text-4xl font-bold text-foreground mb-2">1,600+</div>
-                <p className="text-foreground/70 text-xs uppercase tracking-wide">EVENT ATTENDANCE RATE</p>
+                <p className="text-foreground/70 text-xs uppercase tracking-wide">TOTAL EVENT ATTENDEES</p>
               </div>
               <div className="text-center p-6">
                 <div className="text-4xl font-bold text-foreground mb-2">28%</div>
