@@ -11,6 +11,7 @@ import { toast } from "@/hooks/use-toast";
 import { ArrowRight } from "lucide-react";
 import { SketchyHandDrawnInput } from "./SketchyHandDrawnInput";
 import { SketchyIconButton } from "./SketchyIconButton";
+import { SketchySocialLinks } from "./SketchySocialLinks";
 
 const emailSchema = z.object({ email: z.string().email("Please enter a valid email address") });
 
@@ -140,6 +141,10 @@ export const SketchyFooter = () => {
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </SketchyIconButton>
             </form>
+            <p className="mt-6 mb-1 font-hand text-md text-uxsg-ink/70">
+              Follow us
+            </p>
+            <SketchySocialLinks align="center" className="mt-0 md:justify-start" />
           </div>
         </div>
 

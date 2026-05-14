@@ -4,6 +4,7 @@ import { PlaceholderPageLink } from "@/components/PlaceholderPageLink";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mail } from "lucide-react";
+import { SketchySocialLinks } from "@/components/sketchy/SketchySocialLinks";
 import uxsgLogo from "@/assets/uxsg-logo-dark-bg.png";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -106,6 +107,8 @@ const Footer = ({ variant }: { variant?: 'default' | 'sketchy' }) => {
                 )}
               </Button>
             </form>
+            <h4 className="text-xl font-bold mt-6 mb-2">Follow us</h4>
+            <SketchySocialLinks className="mt-0 text-background" />
           </div>
         </div>
         

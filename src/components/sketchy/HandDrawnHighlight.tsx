@@ -16,17 +16,16 @@ type HandDrawnHighlightProps = {
  * Marker-style yellow highlight with irregular, hand-drawn edges.
  * Stretches horizontally to match the text width.
  */
-export function HandDrawnHighlight({
-  children,
-  className = "",
-  markVisible,
-}: HandDrawnHighlightProps) {
+/**
+ * Just the wobbly yellow marker SVG, no text wrapper.
+ * Use when you need to overlay the highlight on something else (buttons, etc.)
+ * and toggle visibility via CSS.
+ */
+export function HandDrawnHighlightSVG({ className = "" }: { className?: string }) {
   const filterId = `hhl-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
-  const controlled = markVisible !== undefined;
-
-  const svg = (
+  return (
     <svg
-      className="absolute inset-0 z-0 h-full w-full pointer-events-none"
+      className={`absolute inset-0 z-0 h-full w-full pointer-events-none ${className}`.trim()}
       viewBox="0 0 200 26"
       preserveAspectRatio="none"
       aria-hidden
@@ -59,6 +58,15 @@ export function HandDrawnHighlight({
       />
     </svg>
   );
+}
+
+export function HandDrawnHighlight({
+  children,
+  className = "",
+  markVisible,
+}: HandDrawnHighlightProps) {
+  const controlled = markVisible !== undefined;
+  const svg = <HandDrawnHighlightSVG />;
 
   return (
     <span
@@ -68,7 +76,7 @@ export function HandDrawnHighlight({
         <span className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
           <span
             className={cn(
-              "relative block h-full w-full origin-left motion-safe:transition-transform motion-safe:duration-[420ms] motion-safe:ease-out motion-reduce:transition-none",
+              "relative block h-full w-full origin-left motion-safe:transition-transform motion-safe:[transition-duration:420ms] motion-safe:ease-out motion-reduce:transition-none",
               markVisible ? "scale-x-100" : "scale-x-0"
             )}
           >
