@@ -10,7 +10,7 @@ const CommunitySponsorshipSection = () => {
 
   const calculations = useMemo(() => {
     const trials = 50;
-    const price = 5000;
+    const price = 7500;
     const customers = Math.round(trials * (conversionRate / 100));
     const revenue = customers * arr;
     const roi = revenue / price;
@@ -47,8 +47,8 @@ const CommunitySponsorshipSection = () => {
     { text: "Slack Community Access", subtitle: "(office hours + AMA channel)" },
     { text: "Logo Placements", subtitle: "(website + events)" },
     { text: "Custom Promo Code", subtitle: "for tracking" },
-    { text: "Category Exclusivity", subtitle: "(3-month lock-out)" },
-    { text: "Performance Guarantee:", subtitle: "50+ trials or 25% discount" }
+    { text: "Category Exclusivity", subtitle: "— competitors locked out for the quarter" },
+    { text: "Performance Guarantee:", subtitle: "50+ qualified trials or 25% off your next quarter" }
   ];
 
   return (
@@ -71,11 +71,11 @@ const CommunitySponsorshipSection = () => {
             <div className="mb-6 pb-6 border-b-2 border-dashed border-border">
               <h3 className="text-2xl font-bold mb-3 uppercase">Quarterly Partnership</h3>
               <div className="flex items-baseline gap-2 mb-3">
-                <span className="text-5xl font-bold text-foreground">$5,000</span>
+                <span className="text-5xl font-bold text-foreground">$7,500</span>
                 <span className="text-lg text-muted-foreground">/ 3 months</span>
               </div>
               <span className="inline-block bg-primary/10 text-primary text-sm font-medium px-3 py-1 rounded-full">
-                💡 Save $3,000 with annual commitment
+                💡 Save $6,000 with annual commitment
               </span>
             </div>
             
@@ -94,7 +94,7 @@ const CommunitySponsorshipSection = () => {
             
             <Button 
               className="w-full h-12 text-base font-bold bg-foreground text-background hover:bg-foreground/90 shadow-lg hover:shadow-xl transition-all group uppercase" 
-              onClick={() => scrollToContact('Quarterly Partnership - $5,000')}
+              onClick={() => scrollToContact('Quarterly Partnership - $7,500')}
             >
               Get Started
               <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />

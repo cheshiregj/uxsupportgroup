@@ -71,7 +71,7 @@ const SummitSponsorshipSection = () => {
               <div className="mb-6 pb-6 border-b-2 border-dashed border-border mt-4">
                 <h3 className="text-xl font-bold mb-3 uppercase">Virtual Booth Add-On</h3>
                 <div className="flex items-baseline gap-2 mb-1">
-                  <span className="text-4xl font-bold text-foreground">$400</span>
+                  <span className="text-4xl font-bold text-foreground">$750</span>
                 </div>
                 <p className="text-sm text-muted-foreground uppercase">Upgrade Package</p>
               </div>
@@ -87,7 +87,7 @@ const SummitSponsorshipSection = () => {
                 Only 10 available—first come, first served!
               </p>
               
-              <Button className="w-full h-12 text-sm font-bold bg-foreground text-background hover:bg-foreground/90 shadow-lg hover:shadow-xl transition-all group uppercase" onClick={() => scrollToContact('Virtual Booth Add-On - $400')}>
+              <Button className="w-full h-12 text-sm font-bold bg-foreground text-background hover:bg-foreground/90 shadow-lg hover:shadow-xl transition-all group uppercase" onClick={() => scrollToContact('Virtual Booth Add-On - $750')}>
                 Add Virtual Booth
                 <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
