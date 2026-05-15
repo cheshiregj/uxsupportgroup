@@ -7,6 +7,12 @@ import { ArrowRight, Loader2, Mail, Phone, MapPin } from "lucide-react";
 import { useState, FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error
+    ? error.message
+    : "Something went wrong. Please try again or email us directly at info@uxsupportgroup.com";
+
 const Contact = () => {
   const [formData, setFormData] = useState({
     name: '',
@@ -36,10 +42,7 @@ const Contact = () => {
     }
     setIsSubmitting(true);
     try {
-      const {
-        data,
-        error
-      } = await supabase.functions.invoke('send-contact-inquiry', {
+      const { error } = await supabase.functions.invoke('send-contact-inquiry', {
         body: {
           name: formData.name,
           email: formData.email,
@@ -58,11 +61,11 @@ const Contact = () => {
         email: '',
         message: ''
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Submission error:', error);
       toast({
         title: "Submission Failed",
-        description: error.message || "Something went wrong. Please try again or email us directly at info@uxsupportgroup.com",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {
